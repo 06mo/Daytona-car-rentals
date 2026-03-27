@@ -5,8 +5,10 @@ import type { AnalyticsEvent, AnalyticsEventName, CreateAnalyticsEventInput } fr
 
 export async function logAnalyticsEvent(input: CreateAnalyticsEventInput): Promise<void> {
   try {
+    const { metadata, ...rest } = input;
     await addDocument("analytics_events", {
-      ...input,
+      ...rest,
+      ...(metadata !== undefined ? { metadata: Object.fromEntries(Object.entries(metadata).filter(([, v]) => v !== undefined)) } : {}),
       createdAt: new Date(),
     });
   } catch (error) {
