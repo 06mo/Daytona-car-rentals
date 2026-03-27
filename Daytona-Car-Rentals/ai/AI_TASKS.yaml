@@ -1,0 +1,363 @@
+project: Daytona Car Rentals
+stack:
+  frontend: Next.js
+  styling: Tailwind CSS
+  backend: Firebase
+  payments: Stripe
+  storage: Firebase Storage
+
+workflow:
+  - step: architecture
+    owner: claude
+  - step: implementation
+    owner: codex
+  - step: review
+    owner: claude
+  - step: patch
+    owner: codex
+  - step: signoff
+    owner: claude
+
+tasks:
+
+# ---------- FOUNDATION ----------
+- id: DCR-001
+  title: Define full system architecture
+  owner: claude
+  status: complete
+  objective: Define Next.js + Firebase + Stripe architecture
+  deliverable: ai/ARCHITECTURE.md
+
+- id: DCR-002
+  title: Initialize Next.js project structure
+  owner: codex
+  status: complete
+  depends_on: DCR-001
+  objective: Setup app router, folders, base layout
+  deliverable: Running app
+
+- id: DCR-003
+  title: Design UI component system
+  owner: claude
+  status: complete
+  objective: Define reusable components and design tokens
+  deliverable: ai/DCR-003-ui-system.md
+
+- id: DCR-004
+  title: Build UI component library
+  owner: codex
+  status: complete
+  depends_on: DCR-003
+  objective: Create buttons, cards, inputs, modals
+  deliverable: Reusable components
+
+# ---------- HOMEPAGE ----------
+- id: DCR-005
+  title: Design homepage layout
+  owner: claude
+  status: complete
+  objective: Define sections and content hierarchy
+  deliverable: ai/DCR-005-homepage-layout.md
+
+- id: DCR-006
+  title: Build homepage UI
+  owner: codex
+  status: complete
+  depends_on: DCR-005
+  objective: Implement homepage
+  deliverable: Fully responsive homepage
+
+# ---------- FLEET ----------
+- id: DCR-007
+  title: Design fleet page UX
+  owner: claude
+  status: complete
+  objective: Define filtering and grid system
+  deliverable: ai/DCR-007-fleet-page.md
+
+- id: DCR-008
+  title: Build fleet page
+  owner: codex
+  status: complete
+  depends_on: DCR-007
+  objective: Implement vehicle grid + filters
+  deliverable: Fleet page
+
+# ---------- VEHICLE DETAIL ----------
+- id: DCR-009
+  title: Design vehicle detail page
+  owner: claude
+  status: complete
+  objective: Define layout and booking entry point
+  deliverable: ai/DCR-009-vehicle-detail.md
+
+- id: DCR-010
+  title: Build vehicle detail page
+  owner: codex
+  status: complete
+  depends_on: DCR-009
+  objective: Implement UI + date picker
+  deliverable: Working page
+
+# ---------- BOOKING FLOW ----------
+- id: DCR-011
+  title: Design booking flow (multi-step)
+  owner: claude
+  status: complete
+  objective: Define steps including insurance upload
+  deliverable: ai/DCR-011-booking-flow.md
+
+- id: DCR-012
+  title: Build booking form (multi-step)
+  owner: codex
+  status: complete
+  depends_on: DCR-011
+  objective: Implement full booking form
+  deliverable: Functional flow
+
+- id: DCR-013
+  title: Implement file uploads (license + insurance)
+  owner: codex
+  status: complete
+  depends_on: DCR-012
+  objective: Firebase Storage integration
+  deliverable: Upload working
+
+# ---------- BACKEND ----------
+- id: DCR-014
+  title: Design Firestore schema
+  owner: claude
+  status: complete
+  objective: Define collections and relationships
+  deliverable: ai/DCR-014-firestore-schema.md
+
+- id: DCR-015
+  title: Implement Firestore models + API
+  owner: codex
+  status: complete
+  depends_on: DCR-014
+  objective: Create CRUD logic
+  deliverable: Data layer working
+
+# ---------- PAYMENTS ----------
+- id: DCR-016
+  title: Design payment flow
+  owner: claude
+  status: complete
+  objective: Deposit vs full payment logic
+  deliverable: ai/DCR-016-payment-flow.md
+
+- id: DCR-017
+  title: Implement Stripe integration
+  owner: codex
+  status: complete
+  depends_on: DCR-016
+  objective: Payment + webhook
+  deliverable: Payments working
+
+# ---------- ADMIN ----------
+- id: DCR-018
+  title: Design admin dashboard
+  owner: claude
+  status: complete
+  objective: Define all admin screens
+  deliverable: ai/DCR-018-admin-dashboard.md
+
+- id: DCR-019
+  title: Build admin dashboard
+  owner: codex
+  status: complete
+  depends_on: DCR-018
+  objective: Implement dashboard UI
+  deliverable: Admin panel
+
+- id: DCR-020
+  title: Implement verification workflow
+  owner: codex
+  status: complete
+  depends_on: DCR-019
+  objective: Approve/reject documents
+  deliverable: Fully working verification system
+
+# ---------- HARDENING / PRE-LAUNCH ----------
+- id: DCR-021
+  title: Harden customer auth guard
+  owner: codex
+  status: complete
+  objective: Enforce authentication on all routes under app/(customer)/ with redirect-to-login and return URL support.
+  deliverable: Customer routes protected; unauthenticated users cannot access booking/dashboard pages.
+
+- id: DCR-022
+  title: Harden admin middleware and role enforcement
+  owner: claude
+  status: complete
+  objective: Define secure middleware/server-side strategy to verify Firebase ID token and enforce role === 'admin'.
+  deliverable: ai/DCR-022-admin-middleware.md
+
+- id: DCR-023
+  title: Implement admin middleware hardening
+  owner: codex
+  status: complete
+  depends_on: DCR-022
+  objective: Implement verified admin route protection and ensure non-admin users cannot access /admin routes.
+  deliverable: Secure admin middleware with token verification and role enforcement.
+
+- id: DCR-024
+  title: Complete admin booking action system
+  owner: codex
+  status: complete
+  objective: Wire booking detail actions to API, enforce valid state transitions, and implement cancel/refund flows with confirmation UX.
+  deliverable: Fully functional admin booking actions with guarded transitions and UI feedback.
+
+- id: DCR-025
+  title: Add homepage resilience for FeaturedFleet
+  owner: codex
+  status: complete
+  objective: Prevent homepage crash when Firebase fails by adding error boundary or fallback UI for FeaturedFleet.
+  deliverable: Homepage renders with graceful fallback when fleet data fails to load.
+
+  # ---------- POST-LAUNCH: GROWTH + RELIABILITY ----------
+- id: DCR-026
+  title: Design audit logging system
+  owner: claude
+  status: complete
+  objective: Define audit trail for bookings, payments, document reviews, and admin actions.
+  deliverable: ai/DCR-026-audit-logging.md
+
+- id: DCR-027
+  title: Implement audit logging
+  owner: codex
+  status: complete
+  depends_on: DCR-026
+  objective: Log all critical actions (status changes, refunds, approvals) to Firestore.
+  deliverable: Working audit log system with query support.
+
+- id: DCR-028
+  title: Design notification system
+  owner: claude
+  status: complete
+  objective: Define email + SMS triggers for booking lifecycle and verification updates.
+  deliverable: ai/DCR-028-notification-system.md
+
+- id: DCR-029
+  title: Implement email notifications
+  owner: codex
+  status: complete
+  depends_on: DCR-028
+  objective: Send transactional emails (booking submitted, approved, rejected, reminders).
+  deliverable: Email system integrated with booking events.
+
+- id: DCR-030
+  title: Implement SMS notifications
+  owner: codex
+  status: complete
+  depends_on: DCR-028
+  objective: Send SMS for approvals, pickup instructions, and reminders.
+  deliverable: SMS integration working.
+
+# ---------- CUSTOMER EXPERIENCE ----------
+- id: DCR-031
+  title: Design customer portal
+  owner: claude
+  status: complete
+  objective: Define dashboard for customers to view bookings, upload docs, and track status.
+  deliverable: ai/DCR-031-customer-portal.md
+
+- id: DCR-032
+  title: Build customer portal
+  owner: codex
+  status: complete
+  depends_on: DCR-031
+  objective: Implement dashboard with booking history and document management.
+  deliverable: Functional customer portal.
+
+- id: DCR-033
+  title: Implement repeat customer system
+  owner: codex
+  status: complete
+  objective: Tag returning users and enable faster approvals or discounts.
+  deliverable: Repeat customer logic and flags.
+
+# ---------- PRICING + REVENUE ----------
+- id: DCR-034
+  title: Design dynamic pricing rules
+  owner: claude
+  status: complete
+  objective: Define weekend rates, seasonal pricing, and long-term discounts.
+  deliverable: ai/DCR-034-dynamic-pricing.md
+
+- id: DCR-035
+  title: Implement dynamic pricing
+  owner: codex
+  status: complete
+  depends_on: DCR-034
+  objective: Apply pricing rules in booking calculation.
+  deliverable: Dynamic pricing working.
+
+- id: DCR-036
+  title: Implement promo codes system
+  owner: codex
+  status: complete
+  objective: Add discount codes with validation and expiration.
+  deliverable: Promo code system integrated into checkout.
+
+# ---------- SEO + TRAFFIC ----------
+- id: DCR-037
+  title: Design SEO landing pages
+  owner: claude
+  status: complete
+  objective: Define pages targeting "Daytona Beach car rental", airport rentals, etc.
+  deliverable: ai/DCR-037-seo-landing-pages.md
+
+- id: DCR-038
+  title: Build SEO landing pages
+  owner: codex
+  status: complete
+  depends_on: DCR-037
+  objective: Implement optimized pages with metadata and structured content.
+  deliverable: SEO pages live.
+
+- id: DCR-039
+  title: Implement analytics tracking
+  owner: codex
+  status: complete
+  objective: Add analytics (page views, conversions, booking funnel).
+  deliverable: Analytics dashboard integration.
+
+# ---------- PARTNERSHIPS + SCALE ----------
+- id: DCR-040
+  title: Design partner booking flow
+  owner: claude
+  status: complete
+  objective: Define booking flow for hotels/Airbnb partners with referral tracking.
+  deliverable: ai/DCR-040-partner-booking-flow.md
+
+- id: DCR-041
+  title: Implement partner referral system
+  owner: codex
+  status: complete
+  depends_on: DCR-040
+  objective: Track referrals and attribute bookings to partners.
+  deliverable: Referral tracking system.
+
+# ---------- RELIABILITY + SECURITY ----------
+- id: DCR-042
+  title: Implement rate limiting and abuse protection
+  owner: codex
+  status: complete
+  objective: Prevent spam bookings and abuse via API rate limiting.
+  deliverable: Rate limiting middleware.
+
+- id: DCR-043
+  title: Implement monitoring and alerts
+  owner: codex
+  status: complete
+  objective: Add error logging and alerts for failures (payments, uploads, API errors).
+  deliverable: Monitoring system active.
+
+- id: DCR-044
+  title: Production readiness review
+  owner: claude
+  status: complete
+  objective: Final audit of system before scaling traffic.
+  deliverable: ai/DCR-044-production-readiness.md
