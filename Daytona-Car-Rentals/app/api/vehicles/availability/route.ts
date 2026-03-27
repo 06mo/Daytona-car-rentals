@@ -24,14 +24,28 @@ export async function POST(request: Request) {
       return limitResponse;
     }
 
-    const { vehicleId, startDate, endDate } = (await request.json()) as AvailabilityRequest;
+    const body = (await request.json().catch(() => null)) as AvailabilityRequest | null;
+    const vehicleId = body?.vehicleId;
+    const startDate = body?.startDate;
+    const endDate = body?.endDate;
 
     if (!startDate || !endDate) {
       return badRequest("startDate and endDate are required.");
     }
 
+    const parsedStartDate = new Date(startDate);
+    const parsedEndDate = new Date(endDate);
+
+    if (Number.isNaN(parsedStartDate.getTime()) || Number.isNaN(parsedEndDate.getTime())) {
+      return badRequest("startDate and endDate must be valid dates.");
+    }
+
+    if (parsedEndDate <= parsedStartDate) {
+      return badRequest("endDate must be after startDate.");
+    }
+
     if (vehicleId) {
-      const available = await isVehicleAvailable(vehicleId, new Date(startDate), new Date(endDate));
+      const available = await isVehicleAvailable(vehicleId, parsedStartDate, parsedEndDate);
 
       return NextResponse.json({ available });
     }
@@ -39,14 +53,14 @@ export async function POST(request: Request) {
     const activeStatuses: BookingStatus[] = ["pending_verification", "pending_payment", "confirmed", "active"];
     const overlappingBookings = await listDocuments<Booking>("bookings", {
       filters: [
-        { field: "startDate", operator: "<", value: new Date(endDate) },
+        { field: "startDate", operator: "<", value: parsedEndDate },
         { field: "status", operator: "in", value: activeStatuses },
       ],
       orderBy: [{ field: "startDate", direction: "asc" }],
     });
 
     const unavailableVehicleIds = overlappingBookings
-      .filter((booking) => booking.endDate > new Date(startDate))
+      .filter((booking) => booking.endDate > parsedStartDate)
       .map((booking) => booking.vehicleId);
 
     return NextResponse.json({
