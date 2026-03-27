@@ -15,6 +15,7 @@ import type {
 } from "@/types";
 import { getClientServices } from "@/lib/firebase/client";
 import { getFallbackProtectionPricing, listProtectionPackages } from "@/lib/protection/config";
+import { toBookingApiDateTime } from "@/lib/utils/bookingDateTime";
 import { getBookingDraftStorageKey, getBookingResumeStorageKey } from "@/lib/utils/bookingDraft";
 import { computeBookingPricing } from "@/lib/utils/pricing";
 
@@ -382,8 +383,8 @@ export function BookingProvider({
           },
           body: JSON.stringify({
             vehicleId: state.vehicleId,
-            startDate: state.startDate,
-            endDate: state.endDate,
+            startDate: toBookingApiDateTime(state.startDate),
+            endDate: toBookingApiDateTime(state.endDate),
             protectionPackage: state.protectionPackage,
             promoCode: state.promoCode || undefined,
           }),

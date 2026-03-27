@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { PriceSummary } from "@/components/booking/PriceSummary";
 import { useBooking } from "@/components/providers/BookingProvider";
 import { getClientServices } from "@/lib/firebase/client";
+import { toBookingApiDateTime } from "@/lib/utils/bookingDateTime";
 import { computeBookingPricing } from "@/lib/utils/pricing";
 import { formatCurrency } from "@/lib/utils";
 
@@ -67,8 +68,8 @@ export function Step2Extras() {
         body: JSON.stringify({
           code: trimmedCode,
           vehicleId: state.vehicleId,
-          startDate: state.startDate,
-          endDate: state.endDate,
+          startDate: toBookingApiDateTime(state.startDate),
+          endDate: toBookingApiDateTime(state.endDate),
           extras: state.extras,
           protectionPackage: state.protectionPackage,
         }),

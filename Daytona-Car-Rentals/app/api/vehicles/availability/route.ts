@@ -4,6 +4,8 @@ import { FirebaseConfigError } from "@/lib/firebase/firestore";
 import { listDocuments } from "@/lib/firebase/firestore";
 import { enforceRateLimit, rateLimitPolicies } from "@/lib/security/rateLimit";
 import { isVehicleAvailable } from "@/lib/services/bookingService";
+import { reportMonitoringEvent } from "@/lib/monitoring/monitoring";
+import { checkVehicleAvailability } from "@/lib/utils/dateUtils";
 import type { Booking, BookingStatus } from "@/types";
 
 type AvailabilityRequest = {
@@ -52,21 +54,35 @@ export async function POST(request: Request) {
 
     const activeStatuses: BookingStatus[] = ["pending_verification", "pending_payment", "confirmed", "active"];
     const overlappingBookings = await listDocuments<Booking>("bookings", {
-      filters: [
-        { field: "startDate", operator: "<", value: parsedEndDate },
-        { field: "status", operator: "in", value: activeStatuses },
-      ],
-      orderBy: [{ field: "startDate", direction: "asc" }],
+      filters: [{ field: "status", operator: "in", value: activeStatuses }],
+      orderBy: [{ field: "createdAt", direction: "desc" }],
     });
 
     const unavailableVehicleIds = overlappingBookings
-      .filter((booking) => booking.endDate > parsedStartDate)
+      .filter((booking) =>
+        checkVehicleAvailability(
+          { startDate: booking.startDate, endDate: booking.endDate },
+          { startDate: parsedStartDate, endDate: parsedEndDate },
+        ),
+      )
       .map((booking) => booking.vehicleId);
 
     return NextResponse.json({
       unavailableVehicleIds: Array.from(new Set(unavailableVehicleIds)),
     });
   } catch (error) {
+    await reportMonitoringEvent({
+      source: "api.vehicles.availability",
+      message: "Vehicle availability lookup failed.",
+      severity: error instanceof FirebaseConfigError ? "warning" : "error",
+      error,
+      context: {
+        method: request.method,
+        path: "/api/vehicles/availability",
+      },
+      alert: !(error instanceof FirebaseConfigError),
+    });
+
     if (error instanceof FirebaseConfigError) {
       return NextResponse.json({ unavailableVehicleIds: [] });
     }

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { useVehicleOptions } from "@/lib/hooks/useVehicleOptions";
+import { addDaysToBookingDateTime, getMinimumBookingDateTime } from "@/lib/utils/bookingDateTime";
 import { cn } from "@/lib/utils";
 import type { FleetFilters, TransmissionType, VehicleCategory } from "@/types";
 
@@ -40,6 +41,7 @@ function FilterPanel({
   onFiltersChange: (filters: FleetFilters) => void;
 }) {
   const { locations } = useVehicleOptions();
+  const minimumDateTime = getMinimumBookingDateTime();
 
   function toggleCategory(category: VehicleCategory) {
     const categories = filters.categories.includes(category)
@@ -73,14 +75,25 @@ function FilterPanel({
         <div className="grid gap-4">
           <Input
             label="Pick-up"
-            onChange={(event) => onFiltersChange({ ...filters, startDate: event.target.value || null })}
-            type="date"
+            min={minimumDateTime}
+            onChange={(event) =>
+              onFiltersChange({
+                ...filters,
+                startDate: event.target.value || null,
+                endDate:
+                  !filters.endDate || (event.target.value && new Date(filters.endDate) <= new Date(event.target.value))
+                    ? addDaysToBookingDateTime(event.target.value, 1) || null
+                    : filters.endDate,
+              })
+            }
+            type="datetime-local"
             value={filters.startDate ?? ""}
           />
           <Input
             label="Return"
+            min={filters.startDate || minimumDateTime}
             onChange={(event) => onFiltersChange({ ...filters, endDate: event.target.value || null })}
-            type="date"
+            type="datetime-local"
             value={filters.endDate ?? ""}
           />
         </div>

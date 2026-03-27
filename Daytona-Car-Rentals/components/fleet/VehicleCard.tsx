@@ -11,6 +11,7 @@ type VehicleCardProps = {
   vehicle: Vehicle;
   className?: string;
   endDate?: string;
+  location?: string;
   startDate?: string;
 };
 
@@ -36,11 +37,24 @@ function getTotalPrice(vehicle: Vehicle, startDate?: string, endDate?: string) {
   return vehicle.dailyRate * days;
 }
 
-export function VehicleCard({ vehicle, className, startDate, endDate }: VehicleCardProps) {
-  const bookingUrl =
-    startDate && endDate
-      ? `/booking/${vehicle.id}?start=${startDate}&end=${endDate}`
-      : `/fleet/${vehicle.id}`;
+export function VehicleCard({ vehicle, className, startDate, endDate, location }: VehicleCardProps) {
+  const bookingParams = new URLSearchParams();
+
+  if (startDate) {
+    bookingParams.set("start", startDate);
+  }
+
+  if (endDate) {
+    bookingParams.set("end", endDate);
+  }
+
+  if (location) {
+    bookingParams.set("location", location);
+  }
+
+  const bookingUrl = bookingParams.toString()
+    ? `/booking/${vehicle.id}?${bookingParams.toString()}`
+    : `/fleet/${vehicle.id}`;
   const totalPrice = getTotalPrice(vehicle, startDate, endDate);
 
   return (

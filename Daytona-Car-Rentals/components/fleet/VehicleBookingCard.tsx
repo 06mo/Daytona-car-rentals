@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useVehicleOptions } from "@/lib/hooks/useVehicleOptions";
+import { addDaysToBookingDateTime, getMinimumBookingDateTime } from "@/lib/utils/bookingDateTime";
 import { formatCurrency } from "@/lib/utils";
 import { getDateRangeInDays } from "@/lib/utils/dateUtils";
 import type { Vehicle } from "@/types";
@@ -36,10 +37,23 @@ export function VehicleBookingCard({
   const [endDate, setEndDate] = useState(initialEndDate ?? "");
   const [location, setLocation] = useState(initialLocation ?? "");
   const [error, setError] = useState<string | null>(null);
+  const minimumDateTime = getMinimumBookingDateTime();
 
   const hasValidDates = startDate && endDate && new Date(endDate) > new Date(startDate);
   const totalDays = hasValidDates ? getDateRangeInDays(new Date(startDate), new Date(endDate)) : 0;
   const baseTotal = totalDays > 0 ? vehicle.dailyRate * totalDays : 0;
+
+  function handleStartDateChange(value: string) {
+    setStartDate(value);
+
+    if (!value) {
+      return;
+    }
+
+    if (!endDate || new Date(endDate) <= new Date(value)) {
+      setEndDate(addDaysToBookingDateTime(value, 1));
+    }
+  }
 
   function handleBookNow() {
     if (!startDate || !endDate) {
@@ -82,17 +96,17 @@ export function VehicleBookingCard({
 
       <div className="mt-6 grid gap-4">
         <Input
-          label="Pick-up Date"
-          min={new Date().toISOString().split("T")[0]}
-          onChange={(event) => setStartDate(event.target.value)}
-          type="date"
+          label="Pick-up Date & Time"
+          min={minimumDateTime}
+          onChange={(event) => handleStartDateChange(event.target.value)}
+          type="datetime-local"
           value={startDate}
         />
         <Input
-          label="Return Date"
-          min={startDate || new Date().toISOString().split("T")[0]}
+          label="Return Date & Time"
+          min={startDate || minimumDateTime}
           onChange={(event) => setEndDate(event.target.value)}
-          type="date"
+          type="datetime-local"
           value={endDate}
         />
         <label className="grid gap-2 text-sm font-medium text-slate-700">

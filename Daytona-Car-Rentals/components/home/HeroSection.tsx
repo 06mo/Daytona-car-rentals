@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { useVehicleOptions } from "@/lib/hooks/useVehicleOptions";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { addDaysToBookingDateTime, getMinimumBookingDateTime } from "@/lib/utils/bookingDateTime";
 
 export function HeroSection() {
   const router = useRouter();
@@ -14,12 +15,25 @@ export function HeroSection() {
   const [location, setLocation] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const minimumDateTime = getMinimumBookingDateTime();
 
   useEffect(() => {
     if (!location && locations[0]) {
       setLocation(locations[0]);
     }
   }, [location, locations]);
+
+  function handleStartDateChange(value: string) {
+    setStartDate(value);
+
+    if (!value) {
+      return;
+    }
+
+    if (!endDate || new Date(endDate) <= new Date(value)) {
+      setEndDate(addDaysToBookingDateTime(value, 1));
+    }
+  }
 
   function handleSearch() {
     const params = new URLSearchParams();
@@ -68,32 +82,35 @@ export function HeroSection() {
         <div className="mt-10 w-full max-w-4xl rounded-3xl bg-white p-6 shadow-2xl">
           <div className="grid gap-4 md:grid-cols-[1.2fr_1fr_1fr_auto] md:items-end">
             <div>
-              <Input
-                hint="Choose a pickup point in or around Daytona Beach"
-                label="Pick-up Location"
-                list="daytona-locations"
-                onChange={(event) => setLocation(event.target.value)}
-                placeholder="Daytona Beach Airport"
-                value={location}
-              />
-              <datalist id="daytona-locations">
-                {locations.map((item) => (
-                  <option key={item} value={item} />
-                ))}
-              </datalist>
+              <label className="grid gap-2 text-sm font-medium text-slate-700">
+                <span>Pick-up Location</span>
+                <select
+                  className="h-11 rounded-2xl border border-slate-300 bg-white px-4 text-slate-900 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-200"
+                  onChange={(event) => setLocation(event.target.value)}
+                  value={location}
+                >
+                  <option value="">Select a location</option>
+                  {locations.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-sm text-slate-500">Choose a pickup point in or around Daytona Beach.</span>
+              </label>
             </div>
             <Input
-              label="Pick-up Date"
-              min={new Date().toISOString().split("T")[0]}
-              onChange={(event) => setStartDate(event.target.value)}
-              type="date"
+              label="Pick-up Date & Time"
+              min={minimumDateTime}
+              onChange={(event) => handleStartDateChange(event.target.value)}
+              type="datetime-local"
               value={startDate}
             />
             <Input
-              label="Return Date"
-              min={startDate || new Date().toISOString().split("T")[0]}
+              label="Return Date & Time"
+              min={startDate || minimumDateTime}
               onChange={(event) => setEndDate(event.target.value)}
-              type="date"
+              type="datetime-local"
               value={endDate}
             />
             <Button className="w-full md:w-auto" onClick={handleSearch} size="lg" type="button">

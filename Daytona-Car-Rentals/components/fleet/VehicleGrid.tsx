@@ -3,6 +3,7 @@ import type { Vehicle, VehicleSort } from "@/types";
 
 type VehicleGridProps = {
   endDate?: string | null;
+  location?: string | null;
   loading: boolean;
   onClearFilters: () => void;
   onSortChange: (value: VehicleSort) => void;
@@ -19,6 +20,7 @@ export function VehicleGrid({
   onClearFilters,
   startDate,
   endDate,
+  location,
 }: VehicleGridProps) {
   return (
     <div className="space-y-6">
@@ -55,6 +57,7 @@ export function VehicleGrid({
             <VehicleCard
               key={vehicle.id}
               endDate={endDate ?? undefined}
+              location={location ?? undefined}
               startDate={startDate ?? undefined}
               vehicle={vehicle}
             />

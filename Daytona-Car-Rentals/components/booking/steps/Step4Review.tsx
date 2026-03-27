@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useToast } from "@/components/providers/ToastProvider";
 import { Button } from "@/components/ui/Button";
 import { useBooking } from "@/components/providers/BookingProvider";
+import { formatBookingDateTime } from "@/lib/utils/bookingDateTime";
 import { formatCurrency } from "@/lib/utils";
 
 export function Step4Review() {
@@ -54,7 +55,7 @@ export function Step4Review() {
             <h3 className="text-lg font-semibold text-slate-900">Trip Summary</h3>
             <div className="mt-4 grid gap-2 text-sm text-slate-600">
               <p>Vehicle: {vehicle.year} {vehicle.make} {vehicle.model}</p>
-              <p>Dates: {state.startDate} to {state.endDate} ({state.totalDays} days)</p>
+              <p>Dates: {formatBookingDateTime(state.startDate)} to {formatBookingDateTime(state.endDate)} ({state.totalDays} days)</p>
               <p>Pick-up: {state.pickupLocation}</p>
               <p>Return: {state.returnLocation}</p>
               <div className="pt-2">

@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { VehicleFilters } from "@/components/fleet/VehicleFilters";
 import { VehicleGrid } from "@/components/fleet/VehicleGrid";
 import { useVehicles } from "@/lib/hooks/useVehicles";
+import { formatBookingDateTime } from "@/lib/utils/bookingDateTime";
 import type { FleetFilters, Vehicle, VehicleCategory, VehicleSort } from "@/types";
 
 const defaultFilters: FleetFilters = {
@@ -120,6 +121,18 @@ export function FleetCatalog({ initialVehicles }: { initialVehicles: Vehicle[] }
         </p>
       </div>
 
+      {filters.location || (filters.startDate && filters.endDate) ? (
+        <div className="mt-6 rounded-[2rem] border border-orange-200 bg-orange-50 px-6 py-4 text-sm text-orange-900">
+          <p className="font-semibold">Your search</p>
+          <p className="mt-1">
+            {filters.location ? `Pickup in ${filters.location}` : "All pickup locations"}
+            {filters.startDate && filters.endDate
+              ? ` · ${formatBookingDateTime(filters.startDate)} to ${formatBookingDateTime(filters.endDate)}`
+              : ""}
+          </p>
+        </div>
+      ) : null}
+
       <div className="mt-10 grid gap-8 lg:grid-cols-[280px_1fr]">
         <VehicleFilters
           initialFilters={filters}
@@ -131,6 +144,7 @@ export function FleetCatalog({ initialVehicles }: { initialVehicles: Vehicle[] }
 
         <VehicleGrid
           endDate={filters.endDate}
+          location={filters.location}
           loading={loading || isPending}
           onClearFilters={clearFilters}
           onSortChange={(nextSort) => updateUrl(filters, nextSort)}

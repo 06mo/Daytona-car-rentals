@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import { useBooking } from "@/components/providers/BookingProvider";
 import { getClientServices } from "@/lib/firebase/client";
+import { toBookingApiDateTime } from "@/lib/utils/bookingDateTime";
 import type { BookingRiskProfile } from "@/types";
 
 const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
@@ -71,8 +72,8 @@ function PaymentForm({ clientSecret, paymentIntentId }: { clientSecret: string; 
       body: JSON.stringify({
         paymentIntentId,
         vehicleId: state.vehicleId,
-        startDate: state.startDate,
-        endDate: state.endDate,
+        startDate: toBookingApiDateTime(state.startDate),
+        endDate: toBookingApiDateTime(state.endDate),
         pickupLocation: state.pickupLocation,
         returnLocation: state.returnLocation,
         extras: state.extras,
@@ -149,8 +150,8 @@ function AuthenticatedStep5Payment() {
           },
           body: JSON.stringify({
             vehicleId: state.vehicleId,
-            startDate: state.startDate,
-            endDate: state.endDate,
+            startDate: toBookingApiDateTime(state.startDate),
+            endDate: toBookingApiDateTime(state.endDate),
             extras: state.extras,
             protectionPackage: state.protectionPackage,
             promoCode: state.promoCode || undefined,
