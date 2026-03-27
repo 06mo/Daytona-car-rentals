@@ -5,7 +5,7 @@ import { getVehicleById } from "@/lib/services/vehicleService";
 
 type PageProps = {
   params: Promise<{ vehicleId: string }>;
-  searchParams: Promise<{ end?: string; location?: string; start?: string }>;
+  searchParams: Promise<{ end?: string; location?: string; resume?: string; resumeStep?: string; start?: string }>;
 };
 
 export default async function BookingPage({ params, searchParams }: PageProps) {
@@ -21,6 +21,10 @@ export default async function BookingPage({ params, searchParams }: PageProps) {
     <BookingWizard
       initialEndDate={resolvedSearchParams.end}
       initialLocation={resolvedSearchParams.location}
+      initialResume={resolvedSearchParams.resume === "true"}
+      initialResumeStep={
+        resolvedSearchParams.resumeStep ? Number.parseInt(resolvedSearchParams.resumeStep, 10) || undefined : undefined
+      }
       initialStartDate={resolvedSearchParams.start}
       vehicle={vehicle}
     />

@@ -5,6 +5,8 @@ import type {
   ExtrasPricing,
   LongTermDiscountRule,
   PricingRule,
+  ProtectionPackageId,
+  ProtectionPricing,
   Vehicle,
   WeekendPricingRule,
 } from "@/types";
@@ -14,7 +16,9 @@ import { getDateRangeInDays } from "@/lib/utils/dateUtils";
 export function computeBookingPricing(
   vehicle: Vehicle,
   extrasPricing: ExtrasPricing,
+  protectionPricing: ProtectionPricing,
   extras: BookingExtras,
+  protectionPackage: ProtectionPackageId,
   startDate: Date,
   endDate: Date,
   rules: PricingRule[] = [],
@@ -59,8 +63,11 @@ export function computeBookingPricing(
   const extrasAmount =
     (extras.additionalDriver ? extrasPricing.additionalDriver * totalDays : 0) +
     (extras.gps ? extrasPricing.gps * totalDays : 0) +
-    (extras.childSeat ? extrasPricing.childSeat * totalDays : 0) +
-    (extras.cdw ? extrasPricing.cdw * totalDays : 0);
+    (extras.childSeat ? extrasPricing.childSeat * totalDays : 0);
+  const protectionAmount =
+    (protectionPackage === "standard" ? protectionPricing.standard : protectionPackage === "premium" ? protectionPricing.premium : 0) *
+    totalDays;
+  const depositAmount = Math.round(vehicle.depositAmount * (protectionPackage === "premium" ? 0.5 : 1));
   const surchargeAmount = Math.max(adjustedBase - baseAmount, 0);
 
   return {
@@ -68,8 +75,9 @@ export function computeBookingPricing(
     totalDays,
     baseAmount,
     extrasAmount,
-    depositAmount: vehicle.depositAmount,
-    totalAmount: adjustedBase - discountAmount + extrasAmount,
+    protectionAmount,
+    depositAmount,
+    totalAmount: adjustedBase - discountAmount + extrasAmount + protectionAmount,
     surchargeAmount,
     discountAmount,
     appliedRuleNames: Array.from(surchargeRuleNames),

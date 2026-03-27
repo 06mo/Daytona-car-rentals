@@ -15,7 +15,7 @@ import { PaymentFailedEmail } from "@/emails/PaymentFailedEmail";
 import { PaymentRefundedEmail } from "@/emails/PaymentRefundedEmail";
 import { PickupReminderEmail } from "@/emails/PickupReminderEmail";
 import { ReturnReminderEmail } from "@/emails/ReturnReminderEmail";
-import type { Booking, DocumentType, UserProfile, Vehicle } from "@/types";
+import type { Booking, BookingAdjustment, DocumentType, UserProfile, Vehicle } from "@/types";
 import { formatCurrency } from "@/lib/utils";
 
 export class NotificationConfigError extends Error {
@@ -337,6 +337,41 @@ export async function notifyReturnReminder(booking: Booking, customer: UserProfi
     });
   } catch (error) {
     console.error("[notification] notifyReturnReminder failed:", error);
+  }
+}
+
+export async function notifyAdjustmentPaymentRequired(
+  booking: Booking,
+  adjustment: BookingAdjustment,
+  customer: UserProfile,
+): Promise<void> {
+  if (!adjustment.stripePaymentLinkUrl) {
+    return;
+  }
+
+  try {
+    await sendEmail({
+      to: customer.email,
+      subject: `Payment required for your rental — Booking #${booking.id}`,
+      react: (
+        <div>
+          <p>Hi {customer.displayName || "there"},</p>
+          <p>An additional charge has been added to your rental booking.</p>
+          <p>
+            <strong>Reason:</strong> {adjustment.customerVisibleNote ?? adjustment.reason}
+          </p>
+          <p>
+            <strong>Amount:</strong> {formatCurrency(adjustment.amountCents / 100)}
+          </p>
+          <p>
+            <a href={adjustment.stripePaymentLinkUrl}>Pay now</a>
+          </p>
+          <p>This payment link is intended for prompt follow-up on your booking.</p>
+        </div>
+      ),
+    });
+  } catch (error) {
+    console.error("[notification] notifyAdjustmentPaymentRequired failed:", error);
   }
 }
 

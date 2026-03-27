@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 
 import { reportMonitoringEvent } from "@/lib/monitoring/monitoring";
+import { markAdjustmentPaid } from "@/lib/services/adjustmentService";
 import { logAuditEvent } from "@/lib/services/auditService";
 import { notifyPaymentRefunded } from "@/lib/services/notificationService";
 import { getUserProfile } from "@/lib/services/userService";
@@ -107,6 +108,22 @@ export async function handleStripeWebhookEvent(event: Stripe.Event) {
           })();
         }
       }
+      break;
+    }
+    case "checkout.session.completed": {
+      const session = event.data.object as Stripe.Checkout.Session;
+      const adjustmentId = session.metadata?.adjustmentId;
+      const bookingId = session.metadata?.bookingId;
+
+      if (!adjustmentId || !bookingId) {
+        break;
+      }
+
+      await markAdjustmentPaid(
+        bookingId,
+        adjustmentId,
+        typeof session.payment_intent === "string" ? session.payment_intent : null,
+      );
       break;
     }
     default:

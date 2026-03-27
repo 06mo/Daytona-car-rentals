@@ -71,6 +71,7 @@ export function Step4Review() {
               {surchargeAmount > 0 ? <p>{surchargeLabel}: +{formatCurrency(surchargeAmount / 100)}</p> : null}
               {discountAmount > 0 ? <p>{discountLabel}: -{formatCurrency(discountAmount / 100)}</p> : null}
               <p>Extras: {formatCurrency(state.pricing.extrasAmount / 100)}</p>
+              <p>Protection: {formatCurrency(state.pricing.protectionAmount / 100)}</p>
               <p className="font-semibold text-slate-900">Total: {formatCurrency(state.pricing.totalAmount / 100)}</p>
               <p>Deposit charged now: {formatCurrency(state.pricing.depositAmount / 100)}</p>
               <p>Balance at pickup: {formatCurrency((state.pricing.totalAmount - state.pricing.depositAmount) / 100)}</p>
@@ -82,6 +83,16 @@ export function Step4Review() {
             </div>
           </div>
         </div>
+      </div>
+      <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-600">
+        <p className="font-semibold text-slate-900">Protection package: {state.protectionPackage}</p>
+        <p className="mt-2">
+          {state.protectionPackage === "basic"
+            ? "You are using your own insurance coverage for this rental."
+            : state.protectionPackage === "premium"
+              ? "Premium protection includes the fullest coverage and a reduced deposit."
+              : "Standard protection includes CDW coverage with a $500 deductible."}
+        </p>
       </div>
       <label className="flex items-start gap-3 text-sm text-slate-700">
         <input checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} type="checkbox" />

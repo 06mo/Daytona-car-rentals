@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { ClearBookingDraftOnMount } from "@/components/booking/ClearBookingDraftOnMount";
 import { getBookingById } from "@/lib/services/bookingService";
 import { getVehicleById } from "@/lib/services/vehicleService";
 import { Button } from "@/components/ui/Button";
@@ -22,6 +23,7 @@ export default async function BookingConfirmationPage({ params }: PageProps) {
 
   return (
     <section className="mx-auto max-w-3xl px-6 py-16">
+      <ClearBookingDraftOnMount vehicleId={booking.vehicleId} />
       <div className="rounded-[2rem] border border-emerald-200 bg-white p-8 shadow-sm">
         <p className="text-sm font-semibold uppercase tracking-[0.3em] text-emerald-600">Booking Confirmed</p>
         <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-900">Your reservation is in.</h1>

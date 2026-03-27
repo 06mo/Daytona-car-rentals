@@ -8,7 +8,7 @@ export function middleware(request: NextRequest) {
   if (
     request.nextUrl.pathname.startsWith("/admin") ||
     request.nextUrl.pathname.startsWith("/dashboard") ||
-    request.nextUrl.pathname.startsWith("/booking/")
+    request.nextUrl.pathname.startsWith("/booking/confirmation/")
   ) {
     if (!session) {
       const loginUrl = new URL("/login", request.url);

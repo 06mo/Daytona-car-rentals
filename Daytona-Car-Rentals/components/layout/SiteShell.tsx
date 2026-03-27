@@ -10,7 +10,7 @@ type SiteShellProps = {
   children: ReactNode;
 };
 
-const authRoutes = ["/login"];
+const authRoutes = ["/login", "/auth/verify", "/auth/magic-link-sent"];
 
 export function SiteShell({ children }: SiteShellProps) {
   const pathname = usePathname();

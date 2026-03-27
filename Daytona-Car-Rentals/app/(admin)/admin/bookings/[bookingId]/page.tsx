@@ -1,8 +1,14 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { AdjustmentPanel } from "@/components/admin/AdjustmentPanel";
+import { ProtectionPackageBadge } from "@/components/booking/ProtectionPackageBadge";
 import { BookingActionsPanel } from "@/components/admin/BookingActionsPanel";
 import { BookingStatusBadge } from "@/components/admin/BookingStatusBadge";
-import { getBookingTimeline, listAdminUsers, listAdminVehicles } from "@/lib/services/adminService";
+import { getProtectionPackageDefinition } from "@/lib/protection/config";
+import { computeRemainingBalance, listAdjustments } from "@/lib/services/adjustmentService";
+import { getChecklist } from "@/lib/services/checklistService";
+import { getBookingTimeline, listAdminUsers, listAdminVehicles, listUserDocumentsForAdmin } from "@/lib/services/adminService";
 import { getBookingById } from "@/lib/services/bookingService";
 import { listPartners } from "@/lib/services/partnerService";
 import { formatCurrency } from "@/lib/utils";
@@ -19,11 +25,22 @@ export default async function AdminBookingDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  const [users, vehicles, partners] = await Promise.all([listAdminUsers(), listAdminVehicles(), listPartners()]);
+  const [users, vehicles, partners, documents, pickupChecklist, dropoffChecklist, adjustments] = await Promise.all([
+    listAdminUsers(),
+    listAdminVehicles(),
+    listPartners(),
+    listUserDocumentsForAdmin(booking.userId),
+    getChecklist(booking.id, "pickup"),
+    getChecklist(booking.id, "dropoff"),
+    listAdjustments(booking.id),
+  ]);
   const customer = users.find((user) => user.id === booking.userId) ?? null;
   const vehicle = vehicles.find((item) => item.id === booking.vehicleId) ?? null;
   const partner = booking.partnerId ? partners.find((item) => item.id === booking.partnerId) ?? null : null;
+  const insuranceDocument = documents.find((document) => document.type === "insurance_card") ?? null;
   const timeline = getBookingTimeline(booking);
+  const protectionPackageId = booking.protectionPackage ?? "standard";
+  const protectionPackage = getProtectionPackageDefinition(protectionPackageId);
   const customerVerified = customer?.verificationStatus === "verified";
   const statusActions =
     booking.status === "pending_verification" && customerVerified
@@ -39,9 +56,18 @@ export default async function AdminBookingDetailPage({ params }: PageProps) {
       : statusActions.length === 0 && ["completed", "cancelled", "payment_failed"].includes(booking.status)
         ? "No further manual actions are available for this booking."
         : null;
+  const needsInsuranceReviewWarning =
+    booking.status === "confirmed" && protectionPackageId === "basic" && insuranceDocument?.status === "pending";
+  const baseBalance = booking.pricing.totalAmount - booking.pricing.depositAmount;
+  const remainingBalance = computeRemainingBalance(booking, adjustments);
 
   return (
     <section className="space-y-6">
+      {needsInsuranceReviewWarning ? (
+        <div className="rounded-[2rem] border border-amber-200 bg-amber-50 px-6 py-4 text-sm font-medium text-amber-800">
+          Insurance review required before pickup.
+        </div>
+      ) : null}
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.3em] text-orange-500">Admin</p>
@@ -59,6 +85,10 @@ export default async function AdminBookingDetailPage({ params }: PageProps) {
               <p>Dates: {booking.startDate.toDateString()} - {booking.endDate.toDateString()}</p>
               <p>Location: {booking.pickupLocation}</p>
               <p>Vehicle: {vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : booking.vehicleId}</p>
+              <div className="flex items-center gap-3">
+                <span>Protection:</span>
+                <ProtectionPackageBadge packageId={protectionPackageId} />
+              </div>
               {booking.referralCode ? (
                 <p>
                   Referral: {booking.referralCode} {partner ? `(${partner.name})` : "(unrecognised)"}
@@ -83,6 +113,27 @@ export default async function AdminBookingDetailPage({ params }: PageProps) {
         </div>
         <div className="space-y-6">
           <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-slate-900">Risk</h2>
+            <div className="mt-4 grid gap-2 text-sm text-slate-600">
+              <p>Risk score: {booking.riskScore ?? "Not scored"}</p>
+              <p>Risk level: {booking.riskLevel ?? "unknown"}</p>
+              <div>
+                <p className="font-medium text-slate-900">Flags</p>
+                {booking.riskFlags?.length ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {booking.riskFlags.map((flag) => (
+                      <span key={flag} className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                        {flag}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-1">No elevated risk flags recorded.</p>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-slate-900">Customer</h2>
             <div className="mt-4 grid gap-2 text-sm text-slate-600">
               <p>{customer?.displayName ?? booking.userId}</p>
@@ -90,22 +141,64 @@ export default async function AdminBookingDetailPage({ params }: PageProps) {
             </div>
           </div>
           <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-slate-900">Protection</h2>
+            <div className="mt-4 grid gap-2 text-sm text-slate-600">
+              <p>{protectionPackage.name}</p>
+              <p>{protectionPackage.liabilityLabel}</p>
+              <p>Protection total: {formatCurrency(booking.pricing.protectionAmount / 100)}</p>
+              <p>Deposit at booking: {formatCurrency(booking.pricing.depositAmount / 100)}</p>
+              {protectionPackageId === "basic" ? (
+                <p>Insurance on file: {insuranceDocument ? insuranceDocument.status : "missing"}</p>
+              ) : (
+                <p>Insurance on file: optional</p>
+              )}
+            </div>
+          </div>
+          <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-slate-900">Payment</h2>
             <div className="mt-4 grid gap-2 text-sm text-slate-600">
               <p>Deposit paid: {formatCurrency(booking.pricing.depositAmount / 100)}</p>
               <p>Total: {formatCurrency(booking.pricing.totalAmount / 100)}</p>
+              <p>Base balance at pickup: {formatCurrency(baseBalance / 100)}</p>
+              <p>Current remaining balance: {formatCurrency(remainingBalance / 100)}</p>
               <p>PI ID: {booking.stripePaymentIntentId}</p>
             </div>
           </div>
+          <AdjustmentPanel
+            baseBalance={baseBalance}
+            bookingId={booking.id}
+            initialAdjustments={adjustments}
+            initialRemainingBalance={remainingBalance}
+          />
           <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-slate-900">Actions</h2>
-            <div className="mt-4">
+            <div className="mt-4 space-y-4">
               <BookingActionsPanel
                 bookingId={booking.id}
                 canCancel={!["active", "completed", "cancelled"].includes(booking.status)}
                 note={actionNote}
                 statusActions={statusActions}
               />
+              <div className="grid gap-3 text-sm">
+                <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                  <p className="font-medium text-slate-900">Pickup checklist</p>
+                  <p className="mt-1 text-slate-600">Status: {pickupChecklist?.status ?? "not started"}</p>
+                  {(booking.status === "confirmed" || pickupChecklist) ? (
+                    <Link className="mt-2 inline-flex font-semibold text-orange-600 hover:text-orange-700" href={`/admin/bookings/${booking.id}/checklist/pickup`}>
+                      {pickupChecklist ? "Open pickup checklist" : "Start pickup checklist"}
+                    </Link>
+                  ) : null}
+                </div>
+                <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                  <p className="font-medium text-slate-900">Dropoff checklist</p>
+                  <p className="mt-1 text-slate-600">Status: {dropoffChecklist?.status ?? "not started"}</p>
+                  {(booking.status === "active" || dropoffChecklist) ? (
+                    <Link className="mt-2 inline-flex font-semibold text-orange-600 hover:text-orange-700" href={`/admin/bookings/${booking.id}/checklist/dropoff`}>
+                      {dropoffChecklist ? "Open dropoff checklist" : "Start dropoff checklist"}
+                    </Link>
+                  ) : null}
+                </div>
+              </div>
             </div>
           </div>
         </div>

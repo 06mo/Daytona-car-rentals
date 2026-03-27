@@ -4,6 +4,5 @@ export type ExtrasPricing = {
   additionalDriver: number;
   gps: number;
   childSeat: number;
-  cdw: number;
   updatedAt: Date;
 };

@@ -3,10 +3,11 @@
 import { GoogleAuthProvider, signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
 import { useState } from "react";
 
+import { MagicLinkRequestForm } from "@/components/auth/MagicLinkRequestForm";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { setSessionCookie } from "@/lib/auth/clientSession";
 import { getClientServices } from "@/lib/firebase/client";
-
 
 function getErrorMessage(err: unknown): string {
   const code = (err as { code?: string })?.code;
@@ -23,10 +24,6 @@ function getErrorMessage(err: unknown): string {
     default:
       return "Sign-in failed. Please try again.";
   }
-}
-
-function setSessionCookie(token: string) {
-  document.cookie = `__session=${token}; path=/; max-age=3600; SameSite=Strict`;
 }
 
 export function LoginForm({ returnUrl }: { returnUrl?: string }) {
@@ -146,6 +143,20 @@ export function LoginForm({ returnUrl }: { returnUrl?: string }) {
           {loading ? "Signing in…" : "Sign in"}
         </Button>
       </form>
+
+      <div className="flex items-center gap-3">
+        <div className="h-px flex-1 bg-slate-200" />
+        <span className="text-xs text-slate-400">passwordless</span>
+        <div className="h-px flex-1 bg-slate-200" />
+      </div>
+
+      <div className="space-y-3 rounded-3xl border border-slate-200 bg-slate-50 p-4">
+        <div>
+          <p className="text-sm font-semibold text-slate-900">Email me a secure sign-in link</p>
+          <p className="mt-1 text-sm text-slate-500">No password needed. We&apos;ll send a one-time link to continue.</p>
+        </div>
+        <MagicLinkRequestForm buttonLabel="Send Secure Link" continueUrl={returnUrl ?? "/dashboard"} initialEmail={email} />
+      </div>
     </div>
   );
 }

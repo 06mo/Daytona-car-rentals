@@ -3,16 +3,20 @@ import { NextResponse } from "next/server";
 import { FirebaseConfigError } from "@/lib/firebase/firestore";
 import { requireAuth } from "@/lib/middleware/withAuth";
 import { reportMonitoringEvent } from "@/lib/monitoring/monitoring";
+import { isProtectionPackageId } from "@/lib/protection/config";
 import { rateLimitPolicies, enforceRateLimit } from "@/lib/security/rateLimit";
 import { logAnalyticsEvent } from "@/lib/services/analyticsService";
 import { getPartnerByCode } from "@/lib/services/partnerService";
 import { computeBookingPricingWithRules } from "@/lib/services/pricingService";
+import { getProtectionPricing } from "@/lib/services/protectionService";
 import { applyPromoCodeToPricing, getPromoCodeByCode } from "@/lib/services/promoService";
+import { evaluateBookingRisk } from "@/lib/services/riskEngine";
 import { createBooking } from "@/lib/services/bookingService";
 import { getDocument } from "@/lib/firebase/firestore";
+import { getUserDocument } from "@/lib/services/documentService";
 import { retrievePaymentIntent, StripeConfigError } from "@/lib/stripe/server";
 import { getUserProfile } from "@/lib/services/userService";
-import type { BookingExtras, ExtrasPricing, UserProfile } from "@/types";
+import type { BookingExtras, ExtrasPricing, ProtectionPackageId, UserProfile } from "@/types";
 import { getVehicleById } from "@/lib/services/vehicleService";
 
 type CreateBookingRequest = {
@@ -22,6 +26,7 @@ type CreateBookingRequest = {
   pickupLocation?: string;
   returnLocation?: string;
   extras?: BookingExtras;
+  protectionPackage?: ProtectionPackageId;
   paymentIntentId?: string;
   adminNotes?: string;
   promoCode?: string;
@@ -50,9 +55,14 @@ export async function POST(request: Request) {
       !body.pickupLocation ||
       !body.returnLocation ||
       !body.extras ||
+      !body.protectionPackage ||
       !body.paymentIntentId
     ) {
       return badRequest("Missing required booking fields.");
+    }
+
+    if (!isProtectionPackageId(body.protectionPackage)) {
+      return NextResponse.json({ error: "Protection package is invalid." }, { status: 422 });
     }
 
     const vehicle = await getVehicleById(body.vehicleId);
@@ -61,7 +71,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Vehicle not found." }, { status: 404 });
     }
 
-    const extrasPricing = await getDocument<ExtrasPricing>("extras_pricing/current");
+    const [extrasPricing, protectionPricing] = await Promise.all([
+      getDocument<ExtrasPricing>("extras_pricing/current"),
+      getProtectionPricing(),
+    ]);
 
     if (!extrasPricing) {
       return NextResponse.json({ error: "Extras pricing is not configured." }, { status: 503 });
@@ -81,6 +94,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Payment intent vehicle does not match request." }, { status: 409 });
     }
 
+    if (paymentIntent.metadata.protectionPackage !== body.protectionPackage) {
+      return NextResponse.json({ error: "Payment intent protection package does not match request." }, { status: 409 });
+    }
+
     const startDate = new Date(body.startDate);
     const endDate = new Date(body.endDate);
     const [profile, promoCode] = await Promise.all([
@@ -92,13 +109,66 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Promo code is invalid." }, { status: 404 });
     }
 
-    const computedPricing = await computeBookingPricingWithRules(vehicle, extrasPricing, body.extras, startDate, endDate);
+    const riskProfile = await evaluateBookingRisk({
+      userId: user.userId,
+      vehicle,
+      startDate,
+      endDate,
+      protectionPackage: body.protectionPackage,
+      pricingPromoCode: promoCode?.code,
+      stripeCustomerId: profile?.stripeCustomerId,
+    });
+
+    if (!riskProfile.allowedProtectionPackages.includes(body.protectionPackage)) {
+      return NextResponse.json(
+        {
+          error: "Selected protection package is not available for this booking risk profile.",
+          riskProfile,
+        },
+        { status: 422 },
+      );
+    }
+
+    const computedPricing = await computeBookingPricingWithRules(
+      vehicle,
+      extrasPricing,
+      protectionPricing,
+      body.extras,
+      body.protectionPackage,
+      startDate,
+      endDate,
+    );
     const pricing = body.promoCode
       ? applyPromoCodeToPricing(computedPricing, promoCode, profile)
       : computedPricing;
 
+    if (body.protectionPackage === "basic") {
+      const insuranceDocument = await getUserDocument(user.userId, "insurance_card");
+
+      if (!insuranceDocument) {
+        return NextResponse.json(
+          { error: "insurance_required", message: "Basic protection requires a valid insurance card on file." },
+          { status: 422 },
+        );
+      }
+
+      if (insuranceDocument.status === "rejected") {
+        return NextResponse.json(
+          {
+            error: "insurance_rejected",
+            message: "Your insurance card was rejected. Please upload a valid card or select a different protection package.",
+          },
+          { status: 422 },
+        );
+      }
+    }
+
     if (paymentIntent.metadata.totalAmount !== String(pricing.totalAmount)) {
       return NextResponse.json({ error: "Payment intent total does not match the latest booking total." }, { status: 409 });
+    }
+
+    if (paymentIntent.metadata.depositAmount !== String(pricing.depositAmount)) {
+      return NextResponse.json({ error: "Payment intent deposit does not match the latest booking deposit." }, { status: 409 });
     }
 
     if ((paymentIntent.metadata.promoCode ?? "") !== (promoCode?.code ?? "")) {
@@ -120,6 +190,10 @@ export async function POST(request: Request) {
       {
         userId: user.userId,
         vehicleId: body.vehicleId,
+        protectionPackage: body.protectionPackage,
+        riskScore: riskProfile.score,
+        riskLevel: riskProfile.level,
+        riskFlags: riskProfile.flags,
         ...(body.referralCode ? { referralCode: body.referralCode } : {}),
         ...(partner ? { partnerId: partner.id } : {}),
         startDate,
@@ -146,6 +220,7 @@ export async function POST(request: Request) {
           bookingId: booking.id,
           vehicleId: booking.vehicleId,
           totalAmount: booking.pricing.totalAmount,
+          protectionPackage: booking.protectionPackage,
           promoCode: booking.pricing.promoCode,
           referralCode: booking.referralCode,
           partnerId: booking.partnerId,

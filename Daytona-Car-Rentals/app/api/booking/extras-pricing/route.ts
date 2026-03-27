@@ -7,7 +7,6 @@ const fallbackExtrasPricing: ExtrasPricing = {
   additionalDriver: 1500,
   gps: 1000,
   childSeat: 800,
-  cdw: 2500,
   updatedAt: new Date(),
 };
 

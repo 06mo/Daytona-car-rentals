@@ -49,6 +49,24 @@ service cloud.firestore {
                ));
 
       allow delete: if false;
+
+      match /checklists/{type} {
+        allow read: if isAdmin()
+          || (isSignedIn()
+              && get(/databases/$(database)/documents/bookings/$(bookingId)).data.userId == request.auth.uid
+              && resource.data.status == 'submitted');
+        allow write: if isAdmin();
+      }
+
+      match /adjustments/{adjustmentId} {
+        allow read: if isAdmin()
+          || (isSignedIn()
+              && get(/databases/$(database)/documents/bookings/$(bookingId)).data.userId == request.auth.uid
+              && (resource.data.customerVisibleNote != null
+                  || resource.data.status == 'pending'
+                  || resource.data.status == 'paid'));
+        allow write: if isAdmin();
+      }
     }
 
     // ----------------------------------------------------------------
@@ -77,6 +95,11 @@ service cloud.firestore {
     // ----------------------------------------------------------------
 
     match /extras_pricing/{doc} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /protection_pricing/{doc} {
       allow read: if true;
       allow write: if isAdmin();
     }

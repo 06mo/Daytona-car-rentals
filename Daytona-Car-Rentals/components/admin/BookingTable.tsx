@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
+import { ProtectionPackageBadge } from "@/components/booking/ProtectionPackageBadge";
 import { BookingStatusBadge } from "@/components/admin/BookingStatusBadge";
 import { Button } from "@/components/ui/Button";
 import { formatCurrency } from "@/lib/utils";
@@ -84,6 +85,7 @@ export function BookingTable({
                 <th className="pb-3 font-medium">Customer</th>
                 <th className="pb-3 font-medium">Vehicle</th>
                 <th className="pb-3 font-medium">Dates</th>
+                <th className="pb-3 font-medium">Protection</th>
                 <th className="pb-3 font-medium">Total</th>
                 <th className="pb-3 font-medium">Status</th>
                 <th className="pb-3 font-medium">Actions</th>
@@ -99,6 +101,7 @@ export function BookingTable({
                   </td>
                   <td className="py-4 text-slate-700">{vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : booking.vehicleId}</td>
                   <td className="py-4 text-slate-700">{booking.startDate.toLocaleDateString()} - {booking.endDate.toLocaleDateString()}</td>
+                  <td className="py-4"><ProtectionPackageBadge packageId={booking.protectionPackage} /></td>
                   <td className="py-4 text-slate-700">{formatCurrency(booking.pricing.totalAmount / 100)}</td>
                   <td className="py-4"><BookingStatusBadge status={booking.status} /></td>
                   <td className="py-4">

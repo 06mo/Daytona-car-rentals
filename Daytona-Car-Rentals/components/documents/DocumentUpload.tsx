@@ -7,6 +7,7 @@ import { getClientServices } from "@/lib/firebase/client";
 import { uploadDocumentWithProgress } from "@/lib/firebase/client-storage";
 
 type DocumentUploadProps = {
+  disabled?: boolean;
   onUploadComplete: (ref: string) => void;
   type: "drivers_license" | "insurance_card";
   userId: string;
@@ -15,7 +16,7 @@ type DocumentUploadProps = {
 const allowedMimeTypes = ["image/jpeg", "image/png", "application/pdf"];
 const maxSizeInBytes = 10 * 1024 * 1024;
 
-export function DocumentUpload({ onUploadComplete, type, userId }: DocumentUploadProps) {
+export function DocumentUpload({ disabled = false, onUploadComplete, type, userId }: DocumentUploadProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +39,10 @@ export function DocumentUpload({ onUploadComplete, type, userId }: DocumentUploa
     try {
       const currentUser = getClientServices()?.auth.currentUser;
       const token = currentUser ? await currentUser.getIdToken() : "";
+
+      if (!currentUser || !token || !userId) {
+        throw new Error("Please complete sign-in before uploading documents.");
+      }
 
       try {
         const result = await uploadDocumentWithProgress({
@@ -91,6 +96,7 @@ export function DocumentUpload({ onUploadComplete, type, userId }: DocumentUploa
       />
       <button
         className="flex w-full flex-col items-center gap-3 rounded-2xl bg-slate-50 px-4 py-8 text-center hover:bg-slate-100"
+        disabled={disabled}
         onClick={() => inputRef.current?.click()}
         type="button"
       >
@@ -110,6 +116,7 @@ export function DocumentUpload({ onUploadComplete, type, userId }: DocumentUploa
         <img alt={fileName ?? "Uploaded document preview"} className="mt-4 max-h-40 rounded-2xl object-cover" src={previewUrl} />
       ) : null}
       {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
+      {disabled ? <p className="mt-3 text-sm text-slate-500">Sign in to unlock document upload.</p> : null}
     </div>
   );
 }

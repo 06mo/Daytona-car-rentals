@@ -361,3 +361,143 @@ tasks:
   status: complete
   objective: Final audit of system before scaling traffic.
   deliverable: ai/DCR-044-production-readiness.md
+
+  # ---------- PROTECTION PACKAGE + INSURANCE LOGIC ----------
+- id: DCR-045
+  title: Design protection package system
+  owner: claude
+  status: complete
+  objective: Define protection tiers (basic, standard, premium) with pricing, liability caps, deposit logic, and insurance requirements (basic requires renter insurance).
+  deliverable: ai/DCR-045-protection-packages.md
+
+- id: DCR-046
+  title: Implement protection package selection and pricing
+  owner: codex
+  status: complete
+  depends_on: DCR-045
+  objective: Add protection package selection to booking flow, update pricing logic, persist package choice, and display in booking summaries.
+  deliverable: Fully functional protection selection integrated into booking + pricing.
+
+- id: DCR-047
+  title: Enforce insurance requirement logic
+  owner: codex
+  status: complete
+  depends_on: DCR-046
+  objective: Enforce rule that basic protection requires valid renter insurance; block booking if missing; allow standard/premium without insurance.
+  deliverable: Server-side validated insurance requirement with UI enforcement.
+
+- id: DCR-048
+  title: Integrate protection package with Stripe and booking integrity
+  owner: codex
+  status: complete
+  depends_on: DCR-046
+  objective: Include protection pricing in payment intent, attach package metadata, and validate during booking creation.
+  deliverable: Protection-aware Stripe flow with integrity checks.
+
+- id: DCR-049
+  title: Surface protection package in admin and customer views
+  owner: codex
+  status: complete
+  depends_on: DCR-046
+  objective: Display selected protection package and liability context in admin dashboard, booking detail, and customer portal.
+  deliverable: Consistent protection visibility across UI.
+
+- id: DCR-050
+  title: ABI coverage alignment and policy validation
+  owner: claude
+  status: complete
+  objective: Define correct ABI usage model (Period X + on-rental coverage), validate checkout rules against ABI requirements, and document operational workflow.
+  deliverable: ai/DCR-050-abi-coverage-alignment.md
+
+# ---------- RENTAL OPS HARDENING ----------
+- id: DCR-051
+  title: Design pickup and dropoff checklist system
+  owner: claude
+  status: complete
+  objective: Define checklist workflow for handoff and return including fuel, odometer, photos, signatures, and damage notes.
+  deliverable: ai/DCR-051-checklist-system.md
+
+- id: DCR-052
+  title: Implement pickup and dropoff checklist workflow
+  owner: codex
+  status: complete
+  depends_on: DCR-051
+  objective: Build checklist forms, store handoff data, attach images, and transition booking states safely.
+  deliverable: Functional pickup/dropoff checklist system.
+
+- id: DCR-053
+  title: Implement customer and admin signature capture
+  owner: codex
+  status: complete
+  depends_on: DCR-051
+  objective: Capture and persist signatures for pickup, dropoff, and condition acknowledgment.
+  deliverable: Signature workflow integrated into booking ops.
+
+- id: DCR-054
+  title: Design admin booking adjustments and post-booking charges
+  owner: claude
+  status: complete
+  objective: Define adjustment model for trip extensions, fee additions, balance updates, and manual corrections.
+  deliverable: ai/DCR-054-booking-adjustments.md
+
+- id: DCR-055
+  title: Implement admin adjustments and payment requests
+  owner: codex
+  status: complete
+  depends_on: DCR-054
+  objective: Build admin adjustment tools and payment request flow for additional charges.
+  deliverable: Working adjustment and payment request system.
+
+- id: DCR-056
+  title: Implement booking draft recovery
+  owner: codex
+  status: complete
+  objective: Save incomplete bookings and allow users to resume later without losing progress.
+  deliverable: Draft booking persistence and resume flow.
+
+  # ---------- CONVERSION OPTIMIZATION ----------
+- id: DCR-057
+  title: Design magic link authentication flow
+  owner: claude
+  status: complete
+  objective: Define passwordless authentication using email magic links integrated into booking flow without interrupting checkout.
+  deliverable: ai/DCR-057-magic-link-auth.md
+
+- id: DCR-058
+  title: Implement magic link authentication
+  owner: codex
+  status: complete
+  depends_on: DCR-057
+  objective: Enable users to authenticate via email magic link, auto-create accounts, and attach session to booking flow.
+  deliverable: Fully working passwordless login system.
+
+- id: DCR-059
+  title: Enable booking flow without explicit login
+  owner: codex
+  status: complete
+  depends_on: DCR-058
+  objective: Allow users to start and complete booking flow without manual login step, using magic link or silent auth.
+  deliverable: Frictionless booking experience with identity attached.
+
+- id: DCR-060
+  title: Link guest sessions to persistent user accounts
+  owner: codex
+  status: complete
+  depends_on: DCR-058
+  objective: Ensure bookings, documents, and payments are properly attached to user after magic link authentication.
+  deliverable: Seamless session-to-user linking with no data loss.
+
+- id: DCR-061
+  title: Add booking recovery via email
+  owner: codex
+  status: complete
+  depends_on: DCR-058
+  objective: Allow users to resume incomplete bookings via email link without login friction.
+  deliverable: Resume booking flow via secure magic link.
+
+- id: DCR-062
+  title: Harden auth integrity for magic link flow
+  owner: claude
+  status: complete
+  objective: Ensure booking integrity, Stripe metadata validation, and document ownership remain secure under passwordless auth.
+  deliverable: ai/DCR-062-magic-link-auth-integrity.md

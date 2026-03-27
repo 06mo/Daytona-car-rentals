@@ -36,7 +36,9 @@ export const rateLimitPolicies = {
   availabilityLookup: { id: "availability-lookup", limit: 60, windowMs: 60 * 1000 },
   bookingCancel: { id: "booking-cancel", limit: 6, windowMs: 60 * 60 * 1000 },
   bookingCreate: { id: "booking-create", limit: 5, windowMs: 10 * 60 * 1000 },
+  completeRegistration: { id: "complete-registration", limit: 10, windowMs: 60 * 60 * 1000 },
   documentUpload: { id: "document-upload", limit: 20, windowMs: 60 * 60 * 1000 },
+  magicLink: { id: "magic-link", limit: 3, windowMs: 10 * 60 * 1000 },
   paymentIntentCreate: { id: "payment-intent-create", limit: 10, windowMs: 10 * 60 * 1000 },
   profileUpdate: { id: "profile-update", limit: 15, windowMs: 60 * 60 * 1000 },
 } satisfies Record<string, RateLimitPolicy>;

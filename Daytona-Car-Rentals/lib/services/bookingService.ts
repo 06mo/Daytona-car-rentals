@@ -5,6 +5,7 @@ import { Timestamp } from "firebase-admin/firestore";
 
 import { FirebaseConfigError, getDocument, listDocuments, requireDb, updateDocument } from "@/lib/firebase/firestore";
 import { logAuditEvent } from "@/lib/services/auditService";
+import { hasSubmittedChecklist } from "@/lib/services/checklistService";
 import {
   notifyBookingCancelledByAdmin,
   notifyBookingCancelledByCustomer,
@@ -14,6 +15,7 @@ import {
 import { getUserProfile, syncRepeatCustomerProfile } from "@/lib/services/userService";
 import { checkVehicleAvailability, getDateRangeInDays } from "@/lib/utils/dateUtils";
 import { getVehicleById } from "@/lib/services/vehicleService";
+import { evaluateBookingRisk } from "@/lib/services/riskEngine";
 
 function getBookingCollectionPath() {
   return "bookings";
@@ -37,6 +39,15 @@ export async function createBooking(
   }
 
   const now = new Date();
+  const riskProfile = await evaluateBookingRisk({
+    userId: input.userId,
+    vehicle,
+    startDate: input.startDate,
+    endDate: input.endDate,
+    protectionPackage: input.protectionPackage,
+    pricingPromoCode: input.pricing.promoCode,
+    stripeCustomerId: input.stripeCustomerId,
+  });
   const db = requireDb();
   const bookingReference = db.collection(getBookingCollectionPath()).doc();
   const activeStatuses: BookingStatus[] = ["pending_verification", "pending_payment", "confirmed", "active"];
@@ -69,13 +80,20 @@ export async function createBooking(
 
     transaction.set(bookingReference, {
       ...input,
+      riskScore: riskProfile.score,
+      riskLevel: riskProfile.level,
+      riskFlags: riskProfile.flags,
       totalDays,
       pricing: {
         ...input.pricing,
         totalDays,
       },
-      status: input.status ?? "pending_payment",
+      status: riskProfile.reviewRequired ? "pending_verification" : (input.status ?? "pending_payment"),
       paymentStatus: input.paymentStatus ?? "pending",
+      adminNotes:
+        riskProfile.reviewRequired
+          ? [input.adminNotes, "High-risk booking requires manual review before confirmation."].filter(Boolean).join(" ")
+          : input.adminNotes,
       createdAt: now,
       updatedAt: now,
     });
@@ -94,11 +112,14 @@ export async function createBooking(
         status: booking.status,
         paymentStatus: booking.paymentStatus,
         vehicleId: booking.vehicleId,
+        riskScore: booking.riskScore,
+        riskLevel: booking.riskLevel,
         startDate: booking.startDate,
         endDate: booking.endDate,
       },
       metadata: {
         vehicleId: booking.vehicleId,
+        riskFlags: booking.riskFlags,
         startDate: booking.startDate,
         endDate: booking.endDate,
       },
@@ -246,6 +267,22 @@ export async function updateBookingStatus(
 
   if (!booking) {
     throw new Error("Booking not found.");
+  }
+
+  if (booking.status === "confirmed" && status === "active") {
+    const pickupChecklistSubmitted = await hasSubmittedChecklist(bookingId, "pickup");
+
+    if (!pickupChecklistSubmitted) {
+      throw new Error("Pickup checklist must be submitted before marking booking active.");
+    }
+  }
+
+  if (booking.status === "active" && status === "completed") {
+    const dropoffChecklistSubmitted = await hasSubmittedChecklist(bookingId, "dropoff");
+
+    if (!dropoffChecklistSubmitted) {
+      throw new Error("Dropoff checklist must be submitted before marking booking complete.");
+    }
   }
 
   await updateDocument<Booking>(`${getBookingCollectionPath()}/${bookingId}`, {

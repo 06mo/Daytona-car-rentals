@@ -13,6 +13,11 @@ export default async function CustomerLayout({
   const headerStore = await headers();
   const sessionToken = cookieStore.get("__session")?.value ?? cookieStore.get("token")?.value;
   const returnUrl = headerStore.get("x-return-url") ?? "/dashboard";
+  const isPublicBookingFlow = returnUrl.startsWith("/booking/") && !returnUrl.startsWith("/booking/confirmation/");
+
+  if (isPublicBookingFlow) {
+    return <>{children}</>;
+  }
 
   if (!sessionToken) {
     redirect(`/login?returnUrl=${encodeURIComponent(returnUrl)}`);

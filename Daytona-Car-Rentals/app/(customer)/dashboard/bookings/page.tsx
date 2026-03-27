@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { ProtectionPackageBadge } from "@/components/booking/ProtectionPackageBadge";
 import { BookingStatusBadge } from "@/components/admin/BookingStatusBadge";
 import { Button } from "@/components/ui/Button";
 import { getServerUserId } from "@/lib/auth/getServerUserId";
@@ -57,6 +58,9 @@ export default async function CustomerBookingsPage() {
                   <p className="mt-2 text-sm text-slate-500">
                     {booking.startDate.toLocaleDateString()} - {booking.endDate.toLocaleDateString()}
                   </p>
+                  <div className="mt-3">
+                    <ProtectionPackageBadge packageId={booking.protectionPackage ?? "standard"} />
+                  </div>
                   <p className="mt-2 text-sm text-slate-500">
                     Charged at booking: {formatCurrency(booking.pricing.depositAmount / 100)}
                   </p>

@@ -5,11 +5,13 @@ import { loadStripe } from "@stripe/stripe-js";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { AuthGate } from "@/components/booking/AuthGate";
 import { useToast } from "@/components/providers/ToastProvider";
 import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import { useBooking } from "@/components/providers/BookingProvider";
 import { getClientServices } from "@/lib/firebase/client";
+import type { BookingRiskProfile } from "@/types";
 
 const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
   ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
@@ -74,15 +76,16 @@ function PaymentForm({ clientSecret, paymentIntentId }: { clientSecret: string; 
         pickupLocation: state.pickupLocation,
         returnLocation: state.returnLocation,
         extras: state.extras,
+        protectionPackage: state.protectionPackage,
         promoCode: state.promoCode || undefined,
         referralCode,
       }),
     });
 
-    const data = (await response.json()) as { booking?: { id: string }; error?: string };
+    const data = (await response.json()) as { booking?: { id: string }; error?: string; message?: string };
 
     if (!response.ok || !data.booking) {
-      const message = data.error ?? "Booking could not be created after payment.";
+      const message = data.message ?? data.error ?? "Booking could not be created after payment.";
       setError(message);
       toast.error(message);
       setSubmitting(false);
@@ -111,7 +114,15 @@ function PaymentForm({ clientSecret, paymentIntentId }: { clientSecret: string; 
 }
 
 export function Step5Payment() {
-  const { state, setPricing } = useBooking();
+  return (
+    <AuthGate step={5}>
+      <AuthenticatedStep5Payment />
+    </AuthGate>
+  );
+}
+
+function AuthenticatedStep5Payment() {
+  const { state, setPricing, setRiskProfile } = useBooking();
   const { toast } = useToast();
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
@@ -141,6 +152,7 @@ export function Step5Payment() {
             startDate: state.startDate,
             endDate: state.endDate,
             extras: state.extras,
+            protectionPackage: state.protectionPackage,
             promoCode: state.promoCode || undefined,
             referralCode,
           }),
@@ -150,11 +162,13 @@ export function Step5Payment() {
           clientSecret?: string;
           paymentIntentId?: string;
           pricing?: typeof state.pricing;
+          riskProfile?: BookingRiskProfile;
           error?: string;
+          message?: string;
         };
 
         if (!response.ok || !data.clientSecret || !data.paymentIntentId) {
-          throw new Error(data.error ?? "Could not prepare secure checkout.");
+          throw new Error(data.message ?? data.error ?? "Could not prepare secure checkout.");
         }
 
         if (!cancelled) {
@@ -162,6 +176,9 @@ export function Step5Payment() {
           setPaymentIntentId(data.paymentIntentId);
           if (data.pricing) {
             setPricing(data.pricing);
+          }
+          if (data.riskProfile) {
+            setRiskProfile(data.riskProfile);
           }
         }
       } catch (paymentError) {
@@ -178,7 +195,7 @@ export function Step5Payment() {
     return () => {
       cancelled = true;
     };
-  }, [setPricing, state.endDate, state.extras, state.promoCode, state.startDate, state.vehicleId, toast]);
+  }, [setPricing, state.endDate, state.extras, state.protectionPackage, state.promoCode, state.startDate, state.vehicleId, toast]);
 
   const options = useMemo(
     () =>

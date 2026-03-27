@@ -5,7 +5,7 @@ import Stripe from "stripe";
 import { listDocuments, updateDocument } from "@/lib/firebase/firestore";
 import { logAuditEvent } from "@/lib/services/auditService";
 import { getUserProfile, upsertUserProfile } from "@/lib/services/userService";
-import type { Booking, BookingPricing, UserProfile, Vehicle } from "@/types";
+import type { Booking, BookingAdjustment, BookingPricing, ProtectionPackageId, UserProfile, Vehicle } from "@/types";
 
 export class StripeConfigError extends Error {
   constructor(message = "Stripe server credentials are not configured.") {
@@ -65,6 +65,7 @@ export async function getOrCreateStripeCustomer(userId: string, email: string | 
 export async function createPaymentIntentForBooking({
   endDate,
   pricing,
+  protectionPackage,
   promoCode,
   referralCode,
   startDate,
@@ -74,6 +75,7 @@ export async function createPaymentIntentForBooking({
 }: {
   endDate: Date;
   pricing: BookingPricing;
+  protectionPackage: ProtectionPackageId;
   promoCode?: string;
   referralCode?: string;
   startDate: Date;
@@ -85,7 +87,7 @@ export async function createPaymentIntentForBooking({
   const stripeCustomerId = await getOrCreateStripeCustomer(userId, userEmail);
 
   const paymentIntent = await stripe.paymentIntents.create({
-    amount: vehicle.depositAmount,
+    amount: pricing.depositAmount,
     currency: "usd",
     customer: stripeCustomerId,
     automatic_payment_methods: {
@@ -97,7 +99,8 @@ export async function createPaymentIntentForBooking({
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
       totalAmount: String(pricing.totalAmount),
-      depositAmount: String(vehicle.depositAmount),
+      depositAmount: String(pricing.depositAmount),
+      protectionPackage,
       ...(promoCode ? { promoCode } : {}),
       ...(referralCode ? { referralCode } : {}),
     },
@@ -112,7 +115,7 @@ export async function createPaymentIntentForBooking({
     actorRole: "customer",
     metadata: {
       stripePaymentIntentId: paymentIntent.id,
-      depositAmount: vehicle.depositAmount,
+      depositAmount: pricing.depositAmount,
       vehicleId: vehicle.id,
     },
   });
@@ -127,6 +130,53 @@ export async function createPaymentIntentForBooking({
 export async function refundPaymentIntent(paymentIntentId: string) {
   const stripe = getStripeServer();
   return stripe.refunds.create({ payment_intent: paymentIntentId });
+}
+
+export async function createCheckoutSessionForAdjustment({
+  adjustment,
+  booking,
+  customerEmail,
+}: {
+  adjustment: BookingAdjustment;
+  booking: Booking;
+  customerEmail: string | null;
+}) {
+  const stripe = getStripeServer();
+  const stripeCustomerId = await getOrCreateStripeCustomer(booking.userId, customerEmail);
+  const siteUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://daytonacarrentals.com";
+
+  const session = await stripe.checkout.sessions.create({
+    mode: "payment",
+    customer: stripeCustomerId,
+    success_url: `${siteUrl}/dashboard/bookings/${booking.id}?adjustment=${adjustment.id}`,
+    cancel_url: `${siteUrl}/dashboard/bookings/${booking.id}`,
+    metadata: {
+      bookingId: booking.id,
+      adjustmentId: adjustment.id,
+      userId: booking.userId,
+    },
+    payment_intent_data: {
+      metadata: {
+        bookingId: booking.id,
+        adjustmentId: adjustment.id,
+        userId: booking.userId,
+      },
+    },
+    line_items: [
+      {
+        quantity: 1,
+        price_data: {
+          currency: "usd",
+          unit_amount: adjustment.amountCents,
+          product_data: {
+            name: `Booking adjustment - ${adjustment.reason}`,
+          },
+        },
+      },
+    ],
+  });
+
+  return session;
 }
 
 export async function constructWebhookEvent(payload: string | Buffer, signature: string) {

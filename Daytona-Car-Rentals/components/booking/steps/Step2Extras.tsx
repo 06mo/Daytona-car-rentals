@@ -14,11 +14,24 @@ const extrasMeta = {
   additionalDriver: { title: "Additional Driver", description: "Add a second authorised driver." },
   gps: { title: "GPS Navigation", description: "In-car GPS unit for easy routing." },
   childSeat: { title: "Child Seat", description: "Suitable for family travel and weekend pickups." },
-  cdw: { title: "Collision Damage Waiver", description: "Reduce excess to $0." },
 };
 
 export function Step2Extras() {
-  const { extrasPricing, state, toggleExtra, setPricing, setPromoCode, setStep, vehicle } = useBooking();
+  const {
+    extrasPricing,
+    protectionPackages,
+    protectionPricing,
+    riskProfile,
+    riskProfileLoading,
+    setPricing,
+    setPromoCode,
+    setRiskProfile,
+    setProtectionPackage,
+    setStep,
+    state,
+    toggleExtra,
+    vehicle,
+  } = useBooking();
   const [promoInput, setPromoInput] = useState(state.promoCode);
   const [promoMessage, setPromoMessage] = useState<string | null>(null);
   const [promoError, setPromoError] = useState<string | null>(null);
@@ -57,12 +70,14 @@ export function Step2Extras() {
           startDate: state.startDate,
           endDate: state.endDate,
           extras: state.extras,
+          protectionPackage: state.protectionPackage,
         }),
       });
 
       const data = (await response.json()) as {
         promoCode?: { code: string; name: string };
         pricing?: typeof state.pricing;
+        riskProfile?: typeof riskProfile;
         error?: string;
       };
 
@@ -73,6 +88,9 @@ export function Step2Extras() {
       setPromoCode(data.promoCode.code);
       setPromoInput(data.promoCode.code);
       setPricing(data.pricing);
+      if (data.riskProfile) {
+        setRiskProfile(data.riskProfile);
+      }
       setPromoMessage(`${data.promoCode.name} applied.`);
     } catch (error) {
       setPromoError(error instanceof Error ? error.message : "Promo code could not be applied.");
@@ -83,7 +101,9 @@ export function Step2Extras() {
           computeBookingPricing(
             vehicle,
             extrasPricing,
+            protectionPricing,
             state.extras,
+            state.protectionPackage,
             new Date(state.startDate),
             new Date(state.endDate),
           ),
@@ -93,6 +113,14 @@ export function Step2Extras() {
       setSubmittingPromo(false);
     }
   }
+
+  const allowedProtectionPackages = riskProfile?.allowedProtectionPackages ?? protectionPackages.map((item) => item.id);
+  const riskRestrictionMessage =
+    riskProfile?.level === "high"
+      ? "This booking requires our highest protection package and manual review."
+      : riskProfile?.level === "medium"
+        ? "This booking requires Standard or Premium protection."
+        : null;
 
   function handleContinue() {
     void fetch("/api/analytics/track", {
@@ -105,6 +133,7 @@ export function Step2Extras() {
         metadata: {
           vehicleId: state.vehicleId,
           extras: state.extras,
+          protectionPackage: state.protectionPackage,
         },
       }),
     }).catch(() => undefined);
@@ -115,8 +144,77 @@ export function Step2Extras() {
   return (
     <div className="space-y-6">
       <div className="grid gap-4">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Protection Package</p>
+          <p className="mt-1 text-sm text-slate-600">Every booking includes one protection choice. Premium lowers your deposit at checkout.</p>
+        </div>
+        {riskProfileLoading ? <p className="text-sm text-slate-500">Checking booking risk and protection eligibility...</p> : null}
+        {riskProfile ? (
+          <div
+            className={`rounded-3xl border px-5 py-4 text-sm ${
+              riskProfile.level === "high"
+                ? "border-red-200 bg-red-50 text-red-700"
+                : riskProfile.level === "medium"
+                  ? "border-amber-200 bg-amber-50 text-amber-800"
+                  : "border-emerald-200 bg-emerald-50 text-emerald-700"
+            }`}
+          >
+            Risk score: {riskProfile.score}/100 ({riskProfile.level})
+            {riskRestrictionMessage ? ` - ${riskRestrictionMessage}` : ""}
+          </div>
+        ) : null}
+        {protectionPackages.map((protectionPackage) => {
+          const selected = state.protectionPackage === protectionPackage.id;
+          const allowed = allowedProtectionPackages.includes(protectionPackage.id);
+
+          return (
+            <button
+              key={protectionPackage.id}
+              className={`rounded-3xl border p-5 text-left transition ${
+                !allowed
+                  ? "cursor-not-allowed border-slate-200 bg-slate-50 opacity-60"
+                  : selected
+                    ? "border-orange-500 bg-orange-50"
+                    : "border-slate-200 bg-white"
+              }`}
+              disabled={!allowed}
+              onClick={() => setProtectionPackage(protectionPackage.id)}
+              type="button"
+            >
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <div className="flex items-center gap-3">
+                    <p className="text-base font-semibold text-slate-900">{protectionPackage.name}</p>
+                    <span className="rounded-full bg-slate-900/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600">
+                      {protectionPackage.badgeLabel}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm text-slate-600">{protectionPackage.description}</p>
+                  <p className="mt-2 text-xs font-medium uppercase tracking-[0.16em] text-slate-500">
+                    {protectionPackage.liabilityLabel}
+                    {protectionPackage.requiresInsurance ? " · Insurance required" : " · Insurance optional"}
+                  </p>
+                </div>
+                <div className="text-left md:text-right">
+                  <p className="font-semibold text-orange-500">
+                    {protectionPackage.dailyFee > 0 ? `+${formatCurrency(protectionPackage.dailyFee / 100)}/day` : "Included"}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Deposit due now:{" "}
+                    {formatCurrency(
+                      (protectionPackage.id === "premium" ? Math.round(vehicle.depositAmount * 0.5) : vehicle.depositAmount) / 100,
+                    )}
+                  </p>
+                  {!allowed ? <p className="mt-2 text-xs font-semibold text-red-600">Unavailable for this booking risk profile</p> : null}
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      <div className="grid gap-4">
         {Object.entries(extrasMeta).map(([key, meta]) => {
-          const extraKey = key as keyof typeof state.extras;
+          const extraKey = key as keyof typeof extrasMeta;
           const selected = state.extras[extraKey];
           const price = extrasPricing[extraKey];
 

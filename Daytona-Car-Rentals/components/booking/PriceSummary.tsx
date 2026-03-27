@@ -45,6 +45,10 @@ export function PriceSummary() {
         <span>Extras</span>
         <span>{formatCurrency(state.pricing.extrasAmount / 100)}</span>
       </div>
+      <div className="mt-2 flex items-center justify-between text-sm text-slate-600">
+        <span>Protection</span>
+        <span>{formatCurrency(state.pricing.protectionAmount / 100)}</span>
+      </div>
       {promoDiscountAmount > 0 ? (
         <div className="mt-2 flex items-center justify-between text-sm text-slate-600">
           <span>{state.pricing.promoCodeName ?? state.pricing.promoCode ?? "Promo code"}</span>

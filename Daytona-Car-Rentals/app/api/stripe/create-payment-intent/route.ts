@@ -3,21 +3,25 @@ import { NextResponse } from "next/server";
 import { getDocument, FirebaseConfigError } from "@/lib/firebase/firestore";
 import { requireAuth } from "@/lib/middleware/withAuth";
 import { reportMonitoringEvent } from "@/lib/monitoring/monitoring";
+import { isProtectionPackageId } from "@/lib/protection/config";
 import { enforceRateLimit, rateLimitPolicies } from "@/lib/security/rateLimit";
 import { logAnalyticsEvent } from "@/lib/services/analyticsService";
 import { isVehicleAvailable } from "@/lib/services/bookingService";
 import { computeBookingPricingWithRules } from "@/lib/services/pricingService";
+import { getProtectionPricing } from "@/lib/services/protectionService";
 import { applyPromoCodeToPricing, getPromoCodeByCode } from "@/lib/services/promoService";
+import { evaluateBookingRisk } from "@/lib/services/riskEngine";
 import { getUserProfile } from "@/lib/services/userService";
 import { getVehicleById } from "@/lib/services/vehicleService";
 import { createPaymentIntentForBooking, StripeConfigError } from "@/lib/stripe/server";
-import type { BookingExtras, ExtrasPricing } from "@/types";
+import type { BookingExtras, ExtrasPricing, ProtectionPackageId } from "@/types";
 
 type CreatePaymentIntentRequest = {
   vehicleId?: string;
   startDate?: string;
   endDate?: string;
   extras?: BookingExtras;
+  protectionPackage?: ProtectionPackageId;
   promoCode?: string;
   referralCode?: string;
 };
@@ -33,8 +37,12 @@ export async function POST(request: Request) {
     const user = await requireAuth(request);
     const body = (await request.json()) as CreatePaymentIntentRequest;
 
-    if (!body.vehicleId || !body.startDate || !body.endDate || !body.extras) {
+    if (!body.vehicleId || !body.startDate || !body.endDate || !body.extras || !body.protectionPackage) {
       return NextResponse.json({ error: "Missing required payment intent fields." }, { status: 400 });
+    }
+
+    if (!isProtectionPackageId(body.protectionPackage)) {
+      return NextResponse.json({ error: "Protection package is invalid." }, { status: 422 });
     }
 
     const vehicle = await getVehicleById(body.vehicleId);
@@ -43,7 +51,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Vehicle not found." }, { status: 404 });
     }
 
-    const extrasPricing = await getDocument<ExtrasPricing>("extras_pricing/current");
+    const [extrasPricing, protectionPricing] = await Promise.all([
+      getDocument<ExtrasPricing>("extras_pricing/current"),
+      getProtectionPricing(),
+    ]);
 
     if (!extrasPricing) {
       return NextResponse.json({ error: "Extras pricing is not configured." }, { status: 503 });
@@ -66,7 +77,35 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Promo code is invalid." }, { status: 404 });
     }
 
-    const computedPricing = await computeBookingPricingWithRules(vehicle, extrasPricing, body.extras, startDate, endDate);
+    const riskProfile = await evaluateBookingRisk({
+      userId: user.userId,
+      vehicle,
+      startDate,
+      endDate,
+      protectionPackage: body.protectionPackage,
+      pricingPromoCode: promoCode?.code,
+      stripeCustomerId: profile?.stripeCustomerId,
+    });
+
+    if (!riskProfile.allowedProtectionPackages.includes(body.protectionPackage)) {
+      return NextResponse.json(
+        {
+          error: "Selected protection package is not available for this booking risk profile.",
+          riskProfile,
+        },
+        { status: 422 },
+      );
+    }
+
+    const computedPricing = await computeBookingPricingWithRules(
+      vehicle,
+      extrasPricing,
+      protectionPricing,
+      body.extras,
+      body.protectionPackage,
+      startDate,
+      endDate,
+    );
     const pricing = body.promoCode
       ? applyPromoCodeToPricing(computedPricing, promoCode, profile)
       : computedPricing;
@@ -75,6 +114,7 @@ export async function POST(request: Request) {
       userEmail: user.email,
       vehicle,
       pricing,
+      protectionPackage: body.protectionPackage,
       startDate,
       endDate,
       promoCode: promoCode?.code,
@@ -89,6 +129,7 @@ export async function POST(request: Request) {
         vehicleId: body.vehicleId,
         paymentIntentId: paymentIntent.id,
         totalAmount: pricing.totalAmount,
+        protectionPackage: body.protectionPackage,
         promoCode: promoCode?.code,
         referralCode: body.referralCode,
       },
@@ -98,6 +139,7 @@ export async function POST(request: Request) {
       clientSecret: paymentIntent.client_secret,
       paymentIntentId: paymentIntent.id,
       pricing,
+      riskProfile,
     });
   } catch (error) {
     await reportMonitoringEvent({
