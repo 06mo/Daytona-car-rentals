@@ -32,7 +32,7 @@ export const POST = withAuth(async (request, _context, user) => {
     return NextResponse.json({ error: "Booking not found." }, { status: 404 });
   }
 
-  if (!canTransitionBooking(booking.status, status)) {
+  if (!canTransitionBooking(booking, status)) {
     return NextResponse.json({ error: "This booking cannot transition to the requested status." }, { status: 409 });
   }
 

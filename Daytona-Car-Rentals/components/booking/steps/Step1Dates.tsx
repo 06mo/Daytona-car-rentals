@@ -8,8 +8,12 @@ import { useBooking } from "@/components/providers/BookingProvider";
 import { useVehicleOptions } from "@/lib/hooks/useVehicleOptions";
 import {
   addDaysToBookingDateTime,
-  getMinimumBookingDateTime,
+  combineBookingDateAndTime,
+  DEFAULT_BOOKING_TIME,
+  getAvailableBookingTimes,
+  getMinimumBookingDate,
   normalizeBookingDateTimeInput,
+  splitBookingDateTime,
   toBookingApiDateTime,
 } from "@/lib/utils/bookingDateTime";
 
@@ -22,8 +26,12 @@ export function Step1Dates() {
   const [returnTouched, setReturnTouched] = useState(Boolean(state.endDate));
   const [error, setError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
-  const minimumDateTime = getMinimumBookingDateTime();
+  const minimumDate = getMinimumBookingDate();
   const returnLocation = pickupLocation;
+  const startParts = splitBookingDateTime(startDate);
+  const endParts = splitBookingDateTime(endDate);
+  const availableStartTimes = getAvailableBookingTimes(startParts.date);
+  const availableEndTimes = getAvailableBookingTimes(endParts.date);
 
   useEffect(() => {
     if (!startDate || endDate || returnTouched) {
@@ -33,16 +41,24 @@ export function Step1Dates() {
     setEndDate(addDaysToBookingDateTime(startDate, 1));
   }, [endDate, returnTouched, startDate]);
 
-  function handleStartDateChange(value: string) {
-    setStartDate(value);
+  useEffect(() => {
+    if (!pickupLocation && locations[0]) {
+      setPickupLocation(locations[0]);
+    }
+  }, [locations, pickupLocation]);
 
-    if (!value) {
+  function handleStartDateChange(value: string) {
+    const nextTime = startParts.time || DEFAULT_BOOKING_TIME;
+    const combined = combineBookingDateAndTime(value, nextTime);
+    setStartDate(combined);
+
+    if (!combined) {
       return;
     }
 
-    const suggestedReturn = addDaysToBookingDateTime(value, 1);
+    const suggestedReturn = addDaysToBookingDateTime(combined, 1);
 
-    if (!returnTouched || !endDate || new Date(endDate) <= new Date(value)) {
+    if (!returnTouched || !endDate || new Date(endDate) <= new Date(combined)) {
       setEndDate(suggestedReturn);
     }
   }
@@ -103,23 +119,58 @@ export function Step1Dates() {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2">
-        <Input
-          label="Pick-up Date & Time"
-          min={minimumDateTime}
-          onChange={(e) => handleStartDateChange(e.target.value)}
-          type="datetime-local"
-          value={startDate}
-        />
-        <Input
-          label="Return Date & Time"
-          min={startDate || minimumDateTime}
-          onChange={(e) => {
-            setEndDate(e.target.value);
-            setReturnTouched(true);
-          }}
-          type="datetime-local"
-          value={endDate}
-        />
+        <div className="grid gap-4 sm:grid-cols-[1fr_160px]">
+          <Input
+            label="Pick-up Date"
+            min={minimumDate}
+            onChange={(e) => handleStartDateChange(e.target.value)}
+            type="date"
+            value={startParts.date}
+          />
+          <label className="grid gap-2 text-sm font-medium text-slate-700">
+            <span>Pick-up Time</span>
+            <select
+              className="h-11 rounded-2xl border border-slate-300 bg-white px-4 text-slate-900 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-200"
+              onChange={(e) => setStartDate(combineBookingDateAndTime(startParts.date, e.target.value))}
+              value={availableStartTimes.includes(startParts.time) ? startParts.time : availableStartTimes[0] ?? DEFAULT_BOOKING_TIME}
+            >
+              {availableStartTimes.map((time) => (
+                <option key={time} value={time}>
+                  {time}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-[1fr_160px]">
+          <Input
+            label="Return Date"
+            min={startParts.date || minimumDate}
+            onChange={(e) => {
+              setEndDate(combineBookingDateAndTime(e.target.value, endParts.time));
+              setReturnTouched(true);
+            }}
+            type="date"
+            value={endParts.date}
+          />
+          <label className="grid gap-2 text-sm font-medium text-slate-700">
+            <span>Return Time</span>
+            <select
+              className="h-11 rounded-2xl border border-slate-300 bg-white px-4 text-slate-900 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-200"
+              onChange={(e) => {
+                setEndDate(combineBookingDateAndTime(endParts.date, e.target.value));
+                setReturnTouched(true);
+              }}
+              value={availableEndTimes.includes(endParts.time) ? endParts.time : availableEndTimes[0] ?? DEFAULT_BOOKING_TIME}
+            >
+              {availableEndTimes.map((time) => (
+                <option key={time} value={time}>
+                  {time}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         <label className="grid gap-2 text-sm font-medium text-slate-700">

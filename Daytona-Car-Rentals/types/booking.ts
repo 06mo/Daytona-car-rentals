@@ -1,3 +1,10 @@
+import type {
+  CoverageDecisionStatus,
+  CoverageSource,
+  InsuranceBlockingReason,
+  InsuranceVerificationStatus,
+  RentalChannel,
+} from "@/types/insurance";
 import type { PaymentStatus } from "@/types/payment";
 import type { ProtectionPackageId } from "@/types/protection";
 import type { RiskLevel } from "@/types/risk";
@@ -5,6 +12,10 @@ import type { RiskLevel } from "@/types/risk";
 export type BookingStatus =
   | "pending_verification"
   | "pending_payment"
+  | "payment_authorized"
+  | "insurance_pending"
+  | "insurance_manual_review"
+  | "insurance_cleared"
   | "confirmed"
   | "active"
   | "completed"
@@ -44,6 +55,16 @@ export type Booking = {
   riskFlags?: string[];
   referralCode?: string;
   partnerId?: string;
+  rentalChannel?: RentalChannel;
+  coverageDecisionStatus?: CoverageDecisionStatus;
+  coverageSource?: CoverageSource;
+  insuranceVerificationStatus?: InsuranceVerificationStatus;
+  insuranceBlockingReasons?: InsuranceBlockingReason[];
+  insuranceClearedAt?: Date;
+  insuranceReviewedAt?: Date;
+  insuranceOverrideApplied?: boolean;
+  paymentAuthorizedAt?: Date;
+  platformTripId?: string;
   startDate: Date;
   endDate: Date;
   totalDays: number;
@@ -74,6 +95,16 @@ export type CreateBookingInput = {
   riskFlags?: string[];
   referralCode?: string;
   partnerId?: string;
+  rentalChannel?: RentalChannel;
+  coverageDecisionStatus?: CoverageDecisionStatus;
+  coverageSource?: CoverageSource;
+  insuranceVerificationStatus?: InsuranceVerificationStatus;
+  insuranceBlockingReasons?: InsuranceBlockingReason[];
+  insuranceClearedAt?: Date;
+  insuranceReviewedAt?: Date;
+  insuranceOverrideApplied?: boolean;
+  paymentAuthorizedAt?: Date;
+  platformTripId?: string;
   startDate: Date;
   endDate: Date;
   pickupLocation: string;

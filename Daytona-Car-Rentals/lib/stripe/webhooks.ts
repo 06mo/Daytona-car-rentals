@@ -14,6 +14,8 @@ export async function handleStripeWebhookEvent(event: Stripe.Event) {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
       const booking = await syncBookingPaymentStatus(paymentIntent.id, {
         paymentStatus: "paid",
+        status: "payment_authorized",
+        paymentAuthorizedAt: new Date(),
       });
       if (booking) {
         void logAuditEvent({

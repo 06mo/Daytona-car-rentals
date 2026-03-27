@@ -7,7 +7,14 @@ import { useEffect, useState } from "react";
 import { useVehicleOptions } from "@/lib/hooks/useVehicleOptions";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { addDaysToBookingDateTime, getMinimumBookingDateTime } from "@/lib/utils/bookingDateTime";
+import {
+  addDaysToBookingDateTime,
+  combineBookingDateAndTime,
+  DEFAULT_BOOKING_TIME,
+  getAvailableBookingTimes,
+  getMinimumBookingDate,
+  splitBookingDateTime,
+} from "@/lib/utils/bookingDateTime";
 
 export function HeroSection() {
   const router = useRouter();
@@ -15,7 +22,11 @@ export function HeroSection() {
   const [location, setLocation] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const minimumDateTime = getMinimumBookingDateTime();
+  const minimumDate = getMinimumBookingDate();
+  const startParts = splitBookingDateTime(startDate);
+  const endParts = splitBookingDateTime(endDate);
+  const availableStartTimes = getAvailableBookingTimes(startParts.date);
+  const availableEndTimes = getAvailableBookingTimes(endParts.date);
 
   useEffect(() => {
     if (!location && locations[0]) {
@@ -24,14 +35,15 @@ export function HeroSection() {
   }, [location, locations]);
 
   function handleStartDateChange(value: string) {
-    setStartDate(value);
+    const combined = combineBookingDateAndTime(value, startParts.time || DEFAULT_BOOKING_TIME);
+    setStartDate(combined);
 
-    if (!value) {
+    if (!combined) {
       return;
     }
 
-    if (!endDate || new Date(endDate) <= new Date(value)) {
-      setEndDate(addDaysToBookingDateTime(value, 1));
+    if (!endDate || new Date(endDate) <= new Date(combined)) {
+      setEndDate(addDaysToBookingDateTime(combined, 1));
     }
   }
 
@@ -100,19 +112,49 @@ export function HeroSection() {
               </label>
             </div>
             <Input
-              label="Pick-up Date & Time"
-              min={minimumDateTime}
+              label="Pick-up Date"
+              min={minimumDate}
               onChange={(event) => handleStartDateChange(event.target.value)}
-              type="datetime-local"
-              value={startDate}
+              type="date"
+              value={startParts.date}
             />
-            <Input
-              label="Return Date & Time"
-              min={startDate || minimumDateTime}
-              onChange={(event) => setEndDate(event.target.value)}
-              type="datetime-local"
-              value={endDate}
-            />
+            <label className="grid gap-2 text-sm font-medium text-slate-700">
+              <span>Pick-up Time</span>
+              <select
+                className="h-11 rounded-2xl border border-slate-300 bg-white px-4 text-slate-900 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-200"
+                onChange={(event) => setStartDate(combineBookingDateAndTime(startParts.date, event.target.value))}
+                value={availableStartTimes.includes(startParts.time) ? startParts.time : availableStartTimes[0] ?? DEFAULT_BOOKING_TIME}
+              >
+                {availableStartTimes.map((time) => (
+                  <option key={time} value={time}>
+                    {time}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="grid gap-4 md:grid-cols-[1fr_160px] md:col-span-2">
+              <Input
+                label="Return Date"
+                min={startParts.date || minimumDate}
+                onChange={(event) => setEndDate(combineBookingDateAndTime(event.target.value, endParts.time))}
+                type="date"
+                value={endParts.date}
+              />
+              <label className="grid gap-2 text-sm font-medium text-slate-700">
+                <span>Return Time</span>
+                <select
+                  className="h-11 rounded-2xl border border-slate-300 bg-white px-4 text-slate-900 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-200"
+                  onChange={(event) => setEndDate(combineBookingDateAndTime(endParts.date, event.target.value))}
+                  value={availableEndTimes.includes(endParts.time) ? endParts.time : availableEndTimes[0] ?? DEFAULT_BOOKING_TIME}
+                >
+                  {availableEndTimes.map((time) => (
+                    <option key={time} value={time}>
+                      {time}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
             <Button className="w-full md:w-auto" onClick={handleSearch} size="lg" type="button">
               Search Available Cars
             </Button>

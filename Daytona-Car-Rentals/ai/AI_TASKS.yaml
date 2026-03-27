@@ -575,7 +575,7 @@ tasks:
 - id: DCR-064
   title: Implement insurance domain types and Firestore schema
   owner: Codex
-  status: Proposed
+  status: complete
   depends_on:
       - DCR-063
   deliverable: types/insurance.ts, Firestore schema/rules/index updates
@@ -745,7 +745,7 @@ tasks:
 - id: DCR-066
   title: Add booking status split payment authorized vs insurance cleared
   owner: Codex
-  status: Proposed
+  status: complete
   depends_on:
       - DCR-063
       - DCR-064
@@ -889,7 +889,7 @@ tasks:
 - id: DCR-068
   title: Implement coverage decision engine
   owner: Codex
-  status: Proposed
+  status: complete
   depends_on:
       - DCR-064
       - DCR-065

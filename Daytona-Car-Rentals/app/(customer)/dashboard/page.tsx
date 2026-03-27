@@ -29,7 +29,13 @@ export default async function CustomerDashboardPage() {
 
   const upcomingBookings = bookings
     .filter((booking) =>
-      booking.status === "pending_verification" || booking.status === "confirmed" || booking.status === "active",
+      booking.status === "pending_verification" ||
+      booking.status === "payment_authorized" ||
+      booking.status === "insurance_pending" ||
+      booking.status === "insurance_manual_review" ||
+      booking.status === "insurance_cleared" ||
+      booking.status === "confirmed" ||
+      booking.status === "active",
     )
     .sort((first, second) => first.startDate.getTime() - second.startDate.getTime())
     .slice(0, 3);

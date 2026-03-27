@@ -45,6 +45,8 @@ export default async function AdminBookingDetailPage({ params }: PageProps) {
   const statusActions =
     booking.status === "pending_verification" && customerVerified
       ? [{ label: "Confirm Booking", status: "confirmed" as const }]
+      : booking.status === "insurance_cleared"
+        ? [{ label: "Confirm Booking", status: "confirmed" as const }]
       : booking.status === "confirmed"
         ? [{ label: "Mark as Active", status: "active" as const }]
         : booking.status === "active"
@@ -53,6 +55,14 @@ export default async function AdminBookingDetailPage({ params }: PageProps) {
   const actionNote =
     booking.status === "pending_verification" && !customerVerified
       ? "This booking can be confirmed after the customer's verification status is marked as verified."
+      : booking.status === "payment_authorized"
+        ? "Payment has been captured, but insurance evaluation has not cleared this booking yet."
+      : booking.status === "insurance_pending"
+        ? "Insurance verification is still in progress. Do not release the vehicle until coverage is cleared."
+      : booking.status === "insurance_manual_review"
+        ? `Insurance requires manual review${booking.insuranceBlockingReasons?.length ? `: ${booking.insuranceBlockingReasons.join(", ")}` : "."}`
+      : booking.status === "insurance_cleared"
+        ? "Coverage is cleared. This booking can now be confirmed."
       : statusActions.length === 0 && ["completed", "cancelled", "payment_failed"].includes(booking.status)
         ? "No further manual actions are available for this booking."
         : null;
@@ -94,6 +104,7 @@ export default async function AdminBookingDetailPage({ params }: PageProps) {
                   Referral: {booking.referralCode} {partner ? `(${partner.name})` : "(unrecognised)"}
                 </p>
               ) : null}
+              <p>Rental channel: {booking.rentalChannel ?? "direct"}</p>
             </div>
           </div>
           <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
@@ -147,6 +158,12 @@ export default async function AdminBookingDetailPage({ params }: PageProps) {
               <p>{protectionPackage.liabilityLabel}</p>
               <p>Protection total: {formatCurrency(booking.pricing.protectionAmount / 100)}</p>
               <p>Deposit at booking: {formatCurrency(booking.pricing.depositAmount / 100)}</p>
+              <p>Coverage decision: {booking.coverageDecisionStatus ?? "not evaluated"}</p>
+              <p>Coverage source: {booking.coverageSource ?? "none"}</p>
+              <p>Insurance verification: {booking.insuranceVerificationStatus ?? "unsubmitted"}</p>
+              {booking.insuranceBlockingReasons?.length ? (
+                <p>Blocking reasons: {booking.insuranceBlockingReasons.join(", ")}</p>
+              ) : null}
               {protectionPackageId === "basic" ? (
                 <p>Insurance on file: {insuranceDocument ? insuranceDocument.status : "missing"}</p>
               ) : (
@@ -161,6 +178,7 @@ export default async function AdminBookingDetailPage({ params }: PageProps) {
               <p>Total: {formatCurrency(booking.pricing.totalAmount / 100)}</p>
               <p>Base balance at pickup: {formatCurrency(baseBalance / 100)}</p>
               <p>Current remaining balance: {formatCurrency(remainingBalance / 100)}</p>
+              <p>Payment authorized at: {booking.paymentAuthorizedAt ? booking.paymentAuthorizedAt.toLocaleString() : "Not recorded"}</p>
               <p>PI ID: {booking.stripePaymentIntentId}</p>
             </div>
           </div>

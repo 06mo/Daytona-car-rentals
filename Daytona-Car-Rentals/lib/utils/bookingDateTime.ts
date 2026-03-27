@@ -8,6 +8,31 @@ export function toLocalDateTimeInput(value: Date) {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
+export const DEFAULT_BOOKING_TIME = "10:00";
+
+export function buildBookingTimeOptions(intervalMinutes = 30) {
+  const options: string[] = [];
+
+  for (let minutes = 0; minutes < 24 * 60; minutes += intervalMinutes) {
+    const hours = String(Math.floor(minutes / 60)).padStart(2, "0");
+    const remainder = String(minutes % 60).padStart(2, "0");
+    options.push(`${hours}:${remainder}`);
+  }
+
+  return options;
+}
+
+export function getNextAvailableBookingTime(intervalMinutes = 30) {
+  const now = new Date();
+  const totalMinutes = now.getHours() * 60 + now.getMinutes();
+  const roundedMinutes = Math.ceil((totalMinutes + 1) / intervalMinutes) * intervalMinutes;
+  const safeMinutes = Math.min(roundedMinutes, 23 * 60 + 30);
+  const hours = String(Math.floor(safeMinutes / 60)).padStart(2, "0");
+  const minutes = String(safeMinutes % 60).padStart(2, "0");
+
+  return `${hours}:${minutes}`;
+}
+
 export function getMinimumBookingDateTime() {
   return toLocalDateTimeInput(new Date());
 }
@@ -39,6 +64,53 @@ export function addDaysToBookingDateTime(value: string, days: number) {
 
   parsed.setDate(parsed.getDate() + days);
   return toLocalDateTimeInput(parsed);
+}
+
+export function splitBookingDateTime(value: string) {
+  const normalized = normalizeBookingDateTimeInput(value, DEFAULT_BOOKING_TIME);
+
+  if (!normalized || !normalized.includes("T")) {
+    return {
+      date: "",
+      time: DEFAULT_BOOKING_TIME,
+    };
+  }
+
+  const [date, time] = normalized.split("T");
+
+  return {
+    date,
+    time: time?.slice(0, 5) || DEFAULT_BOOKING_TIME,
+  };
+}
+
+export function combineBookingDateAndTime(date: string, time: string) {
+  if (!date) {
+    return "";
+  }
+
+  return `${date}T${time || DEFAULT_BOOKING_TIME}`;
+}
+
+export function getMinimumBookingDate() {
+  return toLocalDateTimeInput(new Date()).split("T")[0];
+}
+
+export function getAvailableBookingTimes(date: string, intervalMinutes = 30) {
+  const options = buildBookingTimeOptions(intervalMinutes);
+
+  if (!date) {
+    return options;
+  }
+
+  const today = getMinimumBookingDate();
+
+  if (date !== today) {
+    return options;
+  }
+
+  const minTime = getNextAvailableBookingTime(intervalMinutes);
+  return options.filter((option) => option >= minTime);
 }
 
 export function toBookingApiDateTime(value: string) {

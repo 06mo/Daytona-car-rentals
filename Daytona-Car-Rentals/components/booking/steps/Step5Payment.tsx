@@ -83,7 +83,7 @@ function PaymentForm({ clientSecret, paymentIntentId }: { clientSecret: string; 
       }),
     });
 
-    const data = (await response.json()) as { booking?: { id: string }; error?: string; message?: string };
+    const data = (await response.json()) as { booking?: { id: string; status?: string }; error?: string; message?: string };
 
     if (!response.ok || !data.booking) {
       const message = data.message ?? data.error ?? "Booking could not be created after payment.";
@@ -93,7 +93,11 @@ function PaymentForm({ clientSecret, paymentIntentId }: { clientSecret: string; 
       return;
     }
 
-    toast.success("Payment confirmed. Your booking is on the way.");
+    const successMessage =
+      data.booking.status === "confirmed"
+        ? "Payment confirmed. Your booking is on the way."
+        : "Payment received. We’ll clear insurance before final confirmation.";
+    toast.success(successMessage);
     router.push(`/booking/confirmation/${data.booking.id}`);
   }
 

@@ -21,16 +21,20 @@ export default async function BookingConfirmationPage({ params }: PageProps) {
   }
 
   const vehicle = await getVehicleById(booking.vehicleId);
+  const isFinalConfirmation = booking.status === "confirmed";
+  const eyebrow = isFinalConfirmation ? "Booking Confirmed" : "Payment Received";
+  const title = isFinalConfirmation ? "Your reservation is in." : "Your payment is secured.";
+  const message = isFinalConfirmation
+    ? "We've confirmed your booking and will see you soon."
+    : "We're reviewing coverage requirements now and will send your final confirmation as soon as insurance is cleared.";
 
   return (
     <section className="mx-auto max-w-3xl px-6 py-16">
       <ClearBookingDraftOnMount vehicleId={booking.vehicleId} />
       <div className="rounded-[2rem] border border-emerald-200 bg-white p-8 shadow-sm">
-        <p className="text-sm font-semibold uppercase tracking-[0.3em] text-emerald-600">Booking Confirmed</p>
-        <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-900">Your reservation is in.</h1>
-        <p className="mt-4 text-slate-600">
-          We&apos;ll review your documents and send a confirmation email before your trip.
-        </p>
+        <p className="text-sm font-semibold uppercase tracking-[0.3em] text-emerald-600">{eyebrow}</p>
+        <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-900">{title}</h1>
+        <p className="mt-4 text-slate-600">{message}</p>
         <div className="mt-8 grid gap-3 text-sm text-slate-600">
           <p>Booking ID: {booking.id}</p>
           <p>Vehicle: {vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : booking.vehicleId}</p>

@@ -201,7 +201,7 @@ export async function findBookingByPaymentIntentId(paymentIntentId: string) {
 
 export async function syncBookingPaymentStatus(
   paymentIntentId: string,
-  values: Partial<Pick<Booking, "paymentStatus" | "status">>,
+  values: Partial<Pick<Booking, "paymentStatus" | "status" | "paymentAuthorizedAt">>,
 ) {
   const booking = await findBookingByPaymentIntentId(paymentIntentId);
 
@@ -209,12 +209,22 @@ export async function syncBookingPaymentStatus(
     return null;
   }
 
+  const nextStatus =
+    values.status === "payment_authorized" && booking.status !== "pending_payment" ? booking.status : values.status;
   const update: Partial<Booking> = {
     updatedAt: new Date(),
     ...values,
+    ...(nextStatus ? { status: nextStatus } : {}),
+    ...(nextStatus === "payment_authorized" && !booking.paymentAuthorizedAt
+      ? { paymentAuthorizedAt: values.paymentAuthorizedAt ?? new Date() }
+      : {}),
   };
 
-  if (booking.paymentStatus === update.paymentStatus && booking.status === update.status) {
+  if (
+    booking.paymentStatus === update.paymentStatus &&
+    booking.status === update.status &&
+    booking.paymentAuthorizedAt?.getTime() === update.paymentAuthorizedAt?.getTime()
+  ) {
     return booking;
   }
 

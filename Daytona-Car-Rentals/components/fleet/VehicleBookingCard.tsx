@@ -2,12 +2,19 @@
 
 import { CheckCircle2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useVehicleOptions } from "@/lib/hooks/useVehicleOptions";
-import { addDaysToBookingDateTime, getMinimumBookingDateTime } from "@/lib/utils/bookingDateTime";
+import {
+  addDaysToBookingDateTime,
+  combineBookingDateAndTime,
+  DEFAULT_BOOKING_TIME,
+  getAvailableBookingTimes,
+  getMinimumBookingDate,
+  splitBookingDateTime,
+} from "@/lib/utils/bookingDateTime";
 import { formatCurrency } from "@/lib/utils";
 import { getDateRangeInDays } from "@/lib/utils/dateUtils";
 import type { Vehicle } from "@/types";
@@ -37,21 +44,32 @@ export function VehicleBookingCard({
   const [endDate, setEndDate] = useState(initialEndDate ?? "");
   const [location, setLocation] = useState(initialLocation ?? "");
   const [error, setError] = useState<string | null>(null);
-  const minimumDateTime = getMinimumBookingDateTime();
+  const minimumDate = getMinimumBookingDate();
+  const startParts = splitBookingDateTime(startDate);
+  const endParts = splitBookingDateTime(endDate);
+  const availableStartTimes = getAvailableBookingTimes(startParts.date);
+  const availableEndTimes = getAvailableBookingTimes(endParts.date);
 
   const hasValidDates = startDate && endDate && new Date(endDate) > new Date(startDate);
   const totalDays = hasValidDates ? getDateRangeInDays(new Date(startDate), new Date(endDate)) : 0;
   const baseTotal = totalDays > 0 ? vehicle.dailyRate * totalDays : 0;
 
-  function handleStartDateChange(value: string) {
-    setStartDate(value);
+  useEffect(() => {
+    if (!location && locations[0]) {
+      setLocation(locations[0]);
+    }
+  }, [location, locations]);
 
-    if (!value) {
+  function handleStartDateChange(value: string) {
+    const combined = combineBookingDateAndTime(value, startParts.time || DEFAULT_BOOKING_TIME);
+    setStartDate(combined);
+
+    if (!combined) {
       return;
     }
 
-    if (!endDate || new Date(endDate) <= new Date(value)) {
-      setEndDate(addDaysToBookingDateTime(value, 1));
+    if (!endDate || new Date(endDate) <= new Date(combined)) {
+      setEndDate(addDaysToBookingDateTime(combined, 1));
     }
   }
 
@@ -95,20 +113,52 @@ export function VehicleBookingCard({
       </div>
 
       <div className="mt-6 grid gap-4">
-        <Input
-          label="Pick-up Date & Time"
-          min={minimumDateTime}
-          onChange={(event) => handleStartDateChange(event.target.value)}
-          type="datetime-local"
-          value={startDate}
-        />
-        <Input
-          label="Return Date & Time"
-          min={startDate || minimumDateTime}
-          onChange={(event) => setEndDate(event.target.value)}
-          type="datetime-local"
-          value={endDate}
-        />
+        <div className="grid gap-4 sm:grid-cols-[1fr_160px]">
+          <Input
+            label="Pick-up Date"
+            min={minimumDate}
+            onChange={(event) => handleStartDateChange(event.target.value)}
+            type="date"
+            value={startParts.date}
+          />
+          <label className="grid gap-2 text-sm font-medium text-slate-700">
+            <span>Pick-up Time</span>
+            <select
+              className="h-11 rounded-2xl border border-slate-300 bg-white px-4 text-slate-900 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-200"
+              onChange={(event) => setStartDate(combineBookingDateAndTime(startParts.date, event.target.value))}
+              value={availableStartTimes.includes(startParts.time) ? startParts.time : availableStartTimes[0] ?? DEFAULT_BOOKING_TIME}
+            >
+              {availableStartTimes.map((time) => (
+                <option key={time} value={time}>
+                  {time}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-[1fr_160px]">
+          <Input
+            label="Return Date"
+            min={startParts.date || minimumDate}
+            onChange={(event) => setEndDate(combineBookingDateAndTime(event.target.value, endParts.time))}
+            type="date"
+            value={endParts.date}
+          />
+          <label className="grid gap-2 text-sm font-medium text-slate-700">
+            <span>Return Time</span>
+            <select
+              className="h-11 rounded-2xl border border-slate-300 bg-white px-4 text-slate-900 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-200"
+              onChange={(event) => setEndDate(combineBookingDateAndTime(endParts.date, event.target.value))}
+              value={availableEndTimes.includes(endParts.time) ? endParts.time : availableEndTimes[0] ?? DEFAULT_BOOKING_TIME}
+            >
+              {availableEndTimes.map((time) => (
+                <option key={time} value={time}>
+                  {time}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
         <label className="grid gap-2 text-sm font-medium text-slate-700">
           <span>Location</span>
           <select

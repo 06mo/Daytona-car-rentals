@@ -116,17 +116,23 @@ export async function getAdminDashboardData() {
 export function getBookingTimeline(booking: Booking) {
   return [
     { label: "Booking Created", time: booking.createdAt },
-    ...(booking.paymentStatus === "paid" ? [{ label: "Payment Received", time: booking.updatedAt }] : []),
+    ...(booking.paymentAuthorizedAt ? [{ label: "Payment Authorized", time: booking.paymentAuthorizedAt }] : []),
+    ...(booking.insuranceReviewedAt ? [{ label: "Insurance Reviewed", time: booking.insuranceReviewedAt }] : []),
+    ...(booking.insuranceClearedAt ? [{ label: "Insurance Cleared", time: booking.insuranceClearedAt }] : []),
     ...(booking.confirmedAt ? [{ label: "Confirmed", time: booking.confirmedAt }] : []),
     ...(booking.completedAt ? [{ label: "Completed", time: booking.completedAt }] : []),
     ...(booking.cancelledAt ? [{ label: "Cancelled", time: booking.cancelledAt }] : []),
   ];
 }
 
-export function canTransitionBooking(currentStatus: BookingStatus, nextStatus: BookingStatus) {
+export function canTransitionBooking(booking: Booking, nextStatus: BookingStatus) {
   const allowedTransitions: Record<BookingStatus, BookingStatus[]> = {
     pending_verification: ["confirmed", "cancelled"],
-    pending_payment: ["cancelled", "payment_failed"],
+    pending_payment: ["payment_authorized", "cancelled", "payment_failed"],
+    payment_authorized: ["insurance_pending", "insurance_manual_review", "cancelled"],
+    insurance_pending: ["payment_authorized", "insurance_manual_review", "insurance_cleared", "cancelled"],
+    insurance_manual_review: ["insurance_cleared", "cancelled"],
+    insurance_cleared: ["confirmed", "cancelled"],
     confirmed: ["active", "cancelled"],
     active: ["completed"],
     completed: [],
@@ -134,5 +140,9 @@ export function canTransitionBooking(currentStatus: BookingStatus, nextStatus: B
     payment_failed: [],
   };
 
-  return allowedTransitions[currentStatus].includes(nextStatus);
+  if (booking.status === "pending_verification" && nextStatus === "confirmed") {
+    return !booking.paymentAuthorizedAt && !booking.coverageDecisionStatus && !booking.insuranceVerificationStatus;
+  }
+
+  return allowedTransitions[booking.status].includes(nextStatus);
 }

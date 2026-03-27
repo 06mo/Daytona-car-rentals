@@ -53,9 +53,26 @@ export default async function CustomerBookingDetailPage({ params }: PageProps) {
       ? appliedRuleNames.find((name) => name.includes("Rate (")) ?? "Long-term discount"
       : "Discount";
   const remainingBalance = computeRemainingBalance(booking, adjustments);
+  const statusMessage =
+    booking.status === "payment_authorized" && booking.coverageDecisionStatus === "rejected"
+      ? "Your deposit has been received, but coverage details still need to be corrected before this booking can be confirmed."
+      : booking.status === "payment_authorized"
+        ? "Your deposit has been received. We’re still working through the insurance review needed before this booking can be confirmed."
+      : booking.status === "insurance_pending"
+        ? "Insurance verification is in progress. We’ll update this booking as soon as coverage is cleared."
+        : booking.status === "insurance_manual_review"
+          ? "This booking needs a manual insurance review before final confirmation."
+          : booking.status === "insurance_cleared"
+            ? "Insurance is cleared. Final confirmation is the next step."
+            : null;
 
   return (
     <section className="space-y-6">
+      {statusMessage ? (
+        <div className="rounded-[2rem] border border-amber-200 bg-amber-50 px-6 py-4 text-sm text-amber-800">
+          {statusMessage}
+        </div>
+      ) : null}
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.3em] text-orange-500">Portal</p>
@@ -101,6 +118,9 @@ export default async function CustomerBookingDetailPage({ params }: PageProps) {
               <p>{protectionPackage.name}</p>
               <p>{protectionPackage.liabilityLabel}</p>
               <p>Protection total: {formatCurrency(booking.pricing.protectionAmount / 100)}</p>
+              <p>Coverage decision: {booking.coverageDecisionStatus ?? "not evaluated"}</p>
+              <p>Coverage source: {booking.coverageSource ?? "none"}</p>
+              <p>Insurance status: {booking.insuranceVerificationStatus ?? "unsubmitted"}</p>
             </div>
           </div>
 

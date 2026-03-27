@@ -6,6 +6,7 @@ export type Partner = {
   code: string;
   contactEmail: string;
   status: PartnerStatus;
+  coverageResponsibility?: "partner" | "platform" | "daytona";
   notes?: string;
   createdAt: Date;
   updatedAt: Date;

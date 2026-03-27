@@ -64,6 +64,11 @@ export function BookingTable({
         >
           <option value="all">All statuses</option>
           <option value="pending_verification">Pending Verification</option>
+          <option value="pending_payment">Pending Payment</option>
+          <option value="payment_authorized">Payment Authorized</option>
+          <option value="insurance_pending">Insurance Pending</option>
+          <option value="insurance_manual_review">Insurance Manual Review</option>
+          <option value="insurance_cleared">Insurance Cleared</option>
           <option value="confirmed">Confirmed</option>
           <option value="active">Active</option>
           <option value="completed">Completed</option>

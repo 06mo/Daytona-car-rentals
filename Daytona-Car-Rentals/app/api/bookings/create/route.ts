@@ -12,6 +12,7 @@ import { getProtectionPricing } from "@/lib/services/protectionService";
 import { applyPromoCodeToPricing, getPromoCodeByCode } from "@/lib/services/promoService";
 import { evaluateBookingRisk } from "@/lib/services/riskEngine";
 import { createBooking } from "@/lib/services/bookingService";
+import { evaluateCoverageDecisionForBooking } from "@/lib/services/coverageDecisionService";
 import { getDocument } from "@/lib/firebase/firestore";
 import { getUserDocument } from "@/lib/services/documentService";
 import { retrievePaymentIntent, StripeConfigError } from "@/lib/stripe/server";
@@ -186,7 +187,7 @@ export async function POST(request: Request) {
 
     const partner = body.referralCode ? await getPartnerByCode(body.referralCode) : null;
 
-    const booking = await createBooking(
+    const createdBooking = await createBooking(
       {
         userId: user.userId,
         vehicleId: body.vehicleId,
@@ -204,12 +205,35 @@ export async function POST(request: Request) {
         pricing,
         stripePaymentIntentId: body.paymentIntentId,
         stripeCustomerId,
-        status: "pending_verification",
+        status: riskProfile.reviewRequired ? "insurance_manual_review" : "payment_authorized",
+        paymentStatus: "paid",
+        paymentAuthorizedAt: new Date(),
+        rentalChannel: "direct",
         adminNotes: body.adminNotes,
       },
       user.userId,
       user.role,
     );
+
+    let booking = createdBooking;
+
+    if (createdBooking) {
+      try {
+        booking = (await evaluateCoverageDecisionForBooking(createdBooking.id)).booking ?? createdBooking;
+      } catch (evalError) {
+        await reportMonitoringEvent({
+          source: "api.bookings.create",
+          message: "Coverage evaluation failed after booking creation.",
+          severity: "error",
+          error: evalError,
+          context: {
+            method: request.method,
+            path: "/api/bookings/create",
+            bookingId: createdBooking.id,
+          },
+        });
+      }
+    }
 
     if (booking) {
       void logAnalyticsEvent({

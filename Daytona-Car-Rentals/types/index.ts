@@ -12,6 +12,7 @@ export * from "@/types/audit";
 export * from "@/types/booking";
 export * from "@/types/checklist";
 export * from "@/types/document";
+export * from "@/types/insurance";
 export * from "@/types/payment";
 export * from "@/types/partner";
 export * from "@/types/pricing";

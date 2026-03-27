@@ -7,7 +7,14 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { useVehicleOptions } from "@/lib/hooks/useVehicleOptions";
-import { addDaysToBookingDateTime, getMinimumBookingDateTime } from "@/lib/utils/bookingDateTime";
+import {
+  addDaysToBookingDateTime,
+  combineBookingDateAndTime,
+  DEFAULT_BOOKING_TIME,
+  getAvailableBookingTimes,
+  getMinimumBookingDate,
+  splitBookingDateTime,
+} from "@/lib/utils/bookingDateTime";
 import { cn } from "@/lib/utils";
 import type { FleetFilters, TransmissionType, VehicleCategory } from "@/types";
 
@@ -41,7 +48,11 @@ function FilterPanel({
   onFiltersChange: (filters: FleetFilters) => void;
 }) {
   const { locations } = useVehicleOptions();
-  const minimumDateTime = getMinimumBookingDateTime();
+  const minimumDate = getMinimumBookingDate();
+  const startParts = splitBookingDateTime(filters.startDate ?? "");
+  const endParts = splitBookingDateTime(filters.endDate ?? "");
+  const availableStartTimes = getAvailableBookingTimes(startParts.date);
+  const availableEndTimes = getAvailableBookingTimes(endParts.date);
 
   function toggleCategory(category: VehicleCategory) {
     const categories = filters.categories.includes(category)
@@ -75,27 +86,55 @@ function FilterPanel({
         <div className="grid gap-4">
           <Input
             label="Pick-up"
-            min={minimumDateTime}
+            min={minimumDate}
             onChange={(event) =>
               onFiltersChange({
                 ...filters,
-                startDate: event.target.value || null,
+                startDate: combineBookingDateAndTime(event.target.value, startParts.time || DEFAULT_BOOKING_TIME) || null,
                 endDate:
-                  !filters.endDate || (event.target.value && new Date(filters.endDate) <= new Date(event.target.value))
-                    ? addDaysToBookingDateTime(event.target.value, 1) || null
+                  !filters.endDate || (event.target.value && new Date(filters.endDate) <= new Date(combineBookingDateAndTime(event.target.value, startParts.time || DEFAULT_BOOKING_TIME)))
+                    ? addDaysToBookingDateTime(combineBookingDateAndTime(event.target.value, startParts.time || DEFAULT_BOOKING_TIME), 1) || null
                     : filters.endDate,
               })
             }
-            type="datetime-local"
-            value={filters.startDate ?? ""}
+            type="date"
+            value={startParts.date}
           />
+          <label className="grid gap-2 text-sm font-medium text-slate-700">
+            <span>Pick-up Time</span>
+            <select
+              className="h-11 rounded-2xl border border-slate-300 bg-white px-4 text-slate-900 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-200"
+              onChange={(event) => onFiltersChange({ ...filters, startDate: combineBookingDateAndTime(startParts.date, event.target.value) || null })}
+              value={availableStartTimes.includes(startParts.time) ? startParts.time : availableStartTimes[0] ?? DEFAULT_BOOKING_TIME}
+            >
+              {availableStartTimes.map((time) => (
+                <option key={time} value={time}>
+                  {time}
+                </option>
+              ))}
+            </select>
+          </label>
           <Input
             label="Return"
-            min={filters.startDate || minimumDateTime}
-            onChange={(event) => onFiltersChange({ ...filters, endDate: event.target.value || null })}
-            type="datetime-local"
-            value={filters.endDate ?? ""}
+            min={startParts.date || minimumDate}
+            onChange={(event) => onFiltersChange({ ...filters, endDate: combineBookingDateAndTime(event.target.value, endParts.time) || null })}
+            type="date"
+            value={endParts.date}
           />
+          <label className="grid gap-2 text-sm font-medium text-slate-700">
+            <span>Return Time</span>
+            <select
+              className="h-11 rounded-2xl border border-slate-300 bg-white px-4 text-slate-900 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-200"
+              onChange={(event) => onFiltersChange({ ...filters, endDate: combineBookingDateAndTime(endParts.date, event.target.value) || null })}
+              value={availableEndTimes.includes(endParts.time) ? endParts.time : availableEndTimes[0] ?? DEFAULT_BOOKING_TIME}
+            >
+              {availableEndTimes.map((time) => (
+                <option key={time} value={time}>
+                  {time}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
       </div>
 

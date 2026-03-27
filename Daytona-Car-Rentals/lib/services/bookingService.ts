@@ -21,6 +21,48 @@ function getBookingCollectionPath() {
   return "bookings";
 }
 
+const availabilityBlockingStatuses: BookingStatus[] = [
+  "pending_verification",
+  "pending_payment",
+  "payment_authorized",
+  "insurance_pending",
+  "insurance_manual_review",
+  "insurance_cleared",
+  "confirmed",
+  "active",
+];
+
+function isLegacyPendingVerificationBooking(booking: Booking) {
+  return (
+    booking.status === "pending_verification" &&
+    !booking.paymentAuthorizedAt &&
+    !booking.coverageDecisionStatus &&
+    !booking.insuranceVerificationStatus
+  );
+}
+
+function canTransitionStatus(booking: Booking, nextStatus: BookingStatus) {
+  const allowedTransitions: Record<BookingStatus, BookingStatus[]> = {
+    pending_verification: ["confirmed", "cancelled"],
+    pending_payment: ["payment_authorized", "cancelled", "payment_failed"],
+    payment_authorized: ["insurance_pending", "insurance_manual_review", "cancelled"],
+    insurance_pending: ["payment_authorized", "insurance_manual_review", "insurance_cleared", "cancelled"],
+    insurance_manual_review: ["insurance_cleared", "cancelled"],
+    insurance_cleared: ["confirmed", "cancelled"],
+    confirmed: ["active", "cancelled"],
+    active: ["completed"],
+    completed: [],
+    cancelled: [],
+    payment_failed: [],
+  };
+
+  if (booking.status === "pending_verification" && nextStatus === "confirmed") {
+    return isLegacyPendingVerificationBooking(booking);
+  }
+
+  return allowedTransitions[booking.status].includes(nextStatus);
+}
+
 export async function createBooking(
   input: CreateBookingInput,
   actorId = "system",
@@ -50,14 +92,12 @@ export async function createBooking(
   });
   const db = requireDb();
   const bookingReference = db.collection(getBookingCollectionPath()).doc();
-  const activeStatuses: BookingStatus[] = ["pending_verification", "pending_payment", "confirmed", "active"];
-
   await db.runTransaction(async (transaction) => {
     const overlappingQuery = db
       .collection(getBookingCollectionPath())
       .where("vehicleId", "==", input.vehicleId)
       .where("startDate", "<", Timestamp.fromDate(input.endDate))
-      .where("status", "in", activeStatuses)
+      .where("status", "in", availabilityBlockingStatuses)
       .orderBy("startDate", "asc");
 
     const overlappingSnapshot = await transaction.get(overlappingQuery);
@@ -78,6 +118,13 @@ export async function createBooking(
       throw new Error("Vehicle is not available for the selected dates.");
     }
 
+    const createdStatus = input.status ?? (riskProfile.reviewRequired ? "insurance_manual_review" : "payment_authorized");
+    const paymentStatus = input.paymentStatus ?? "paid";
+    const paymentAuthorizedAt =
+      paymentStatus === "paid" && ["payment_authorized", "insurance_pending", "insurance_manual_review", "insurance_cleared", "confirmed", "active", "completed"].includes(createdStatus)
+        ? (input.paymentAuthorizedAt ?? now)
+        : input.paymentAuthorizedAt;
+
     transaction.set(bookingReference, {
       ...input,
       riskScore: riskProfile.score,
@@ -88,11 +135,20 @@ export async function createBooking(
         ...input.pricing,
         totalDays,
       },
-      status: riskProfile.reviewRequired ? "pending_verification" : (input.status ?? "pending_payment"),
-      paymentStatus: input.paymentStatus ?? "pending",
+      status: createdStatus,
+      paymentStatus,
+      paymentAuthorizedAt,
+      rentalChannel: input.rentalChannel ?? "direct",
+      coverageDecisionStatus: input.coverageDecisionStatus ?? (riskProfile.reviewRequired ? "manual_review" : undefined),
+      coverageSource: input.coverageSource ?? "none",
+      insuranceVerificationStatus: input.insuranceVerificationStatus ?? "unsubmitted",
+      insuranceOverrideApplied: input.insuranceOverrideApplied ?? false,
+      insuranceBlockingReasons:
+        input.insuranceBlockingReasons ??
+        (riskProfile.reviewRequired ? ["manual_review_required"] : []),
       adminNotes:
-        riskProfile.reviewRequired
-          ? [input.adminNotes, "High-risk booking requires manual review before confirmation."].filter(Boolean).join(" ")
+        createdStatus === "insurance_manual_review"
+          ? [input.adminNotes, "Coverage review required before confirmation."].filter(Boolean).join(" ")
           : input.adminNotes,
       createdAt: now,
       updatedAt: now,
@@ -153,19 +209,17 @@ export async function listBookingsForUser(userId: string) {
 }
 
 export async function isVehicleAvailable(vehicleId: string, startDate: Date, endDate: Date) {
-  const activeStatuses: BookingStatus[] = ["pending_verification", "pending_payment", "confirmed", "active"];
-
   const existingBookings = await listDocuments<Booking>(getBookingCollectionPath(), {
     filters: [
       { field: "vehicleId", operator: "==", value: vehicleId },
       { field: "startDate", operator: "<", value: endDate },
-      { field: "status", operator: "in", value: activeStatuses },
+      { field: "status", operator: "in", value: availabilityBlockingStatuses },
     ],
     orderBy: [{ field: "startDate", direction: "asc" }],
   });
 
   return !existingBookings.some((booking) => {
-    if (!activeStatuses.includes(booking.status)) {
+    if (!availabilityBlockingStatuses.includes(booking.status)) {
       return false;
     }
 
@@ -270,6 +324,10 @@ export async function updateBookingStatus(
   }
 
   if (booking.status === "confirmed" && status === "active") {
+    if (!canTransitionStatus(booking, status)) {
+      throw new Error("This booking cannot transition to the requested status.");
+    }
+
     const pickupChecklistSubmitted = await hasSubmittedChecklist(bookingId, "pickup");
 
     if (!pickupChecklistSubmitted) {
@@ -278,6 +336,10 @@ export async function updateBookingStatus(
   }
 
   if (booking.status === "active" && status === "completed") {
+    if (!canTransitionStatus(booking, status)) {
+      throw new Error("This booking cannot transition to the requested status.");
+    }
+
     const dropoffChecklistSubmitted = await hasSubmittedChecklist(bookingId, "dropoff");
 
     if (!dropoffChecklistSubmitted) {
@@ -285,10 +347,17 @@ export async function updateBookingStatus(
     }
   }
 
+  if (!canTransitionStatus(booking, status)) {
+    throw new Error("This booking cannot transition to the requested status.");
+  }
+
   await updateDocument<Booking>(`${getBookingCollectionPath()}/${bookingId}`, {
     status,
     adminNotes,
     updatedAt: new Date(),
+    ...(status === "payment_authorized" && !booking.paymentAuthorizedAt ? { paymentAuthorizedAt: new Date() } : {}),
+    ...(status === "insurance_manual_review" ? { insuranceReviewedAt: new Date() } : {}),
+    ...(status === "insurance_cleared" ? { insuranceReviewedAt: new Date(), insuranceClearedAt: new Date() } : {}),
     ...(status === "confirmed" ? { confirmedAt: new Date() } : {}),
     ...(status === "completed" ? { completedAt: new Date() } : {}),
   });

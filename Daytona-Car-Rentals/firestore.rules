@@ -129,6 +129,26 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /insurance_verifications/{verificationId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /coverage_decisions/{decisionId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /policy_events/{eventId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /claims_evidence/{evidenceId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     // ----------------------------------------------------------------
     // Audit logs — admin read, server write only
     // ----------------------------------------------------------------

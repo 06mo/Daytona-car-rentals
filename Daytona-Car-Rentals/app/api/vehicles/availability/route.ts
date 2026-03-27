@@ -52,10 +52,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ available });
     }
 
-    const activeStatuses: BookingStatus[] = ["pending_verification", "pending_payment", "confirmed", "active"];
+    const activeStatuses: BookingStatus[] = [
+      "pending_verification",
+      "pending_payment",
+      "payment_authorized",
+      "insurance_pending",
+      "insurance_manual_review",
+      "insurance_cleared",
+      "confirmed",
+      "active",
+    ];
     const overlappingBookings = await listDocuments<Booking>("bookings", {
       filters: [{ field: "status", operator: "in", value: activeStatuses }],
-      orderBy: [{ field: "createdAt", direction: "desc" }],
     });
 
     const unavailableVehicleIds = overlappingBookings
