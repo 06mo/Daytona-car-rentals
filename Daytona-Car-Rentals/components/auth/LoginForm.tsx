@@ -77,7 +77,7 @@ export function LoginForm({ returnUrl }: { returnUrl?: string }) {
       {/* Google */}
       <Button
         type="button"
-        variant="outline"
+        variant="secondary"
         className="w-full"
         onClick={handleGoogle}
         disabled={loading}
