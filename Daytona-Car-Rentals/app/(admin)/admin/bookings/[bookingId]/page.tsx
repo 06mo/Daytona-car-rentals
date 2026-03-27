@@ -229,6 +229,18 @@ export default async function AdminBookingDetailPage({ params }: PageProps) {
                     </Link>
                   ) : null}
                 </div>
+                <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                  <p className="font-medium text-slate-900">Claims evidence package</p>
+                  <p className="mt-1 text-slate-500 text-xs">Read-only snapshot of all operational and insurance artifacts for this booking.</p>
+                  <a
+                    className="mt-2 inline-flex font-semibold text-orange-600 hover:text-orange-700"
+                    href={`/api/admin/bookings/${booking.id}/claims-evidence`}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    View claims evidence (JSON)
+                  </a>
+                </div>
               </div>
             </div>
           </div>

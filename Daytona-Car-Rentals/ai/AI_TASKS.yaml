@@ -1085,7 +1085,7 @@ tasks:
 - id: DCR-071
   title: Build claims evidence package generator
   owner: Codex
-  status: Proposed
+  status: complete
   depends_on:
       - DCR-064
       - DCR-065
