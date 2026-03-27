@@ -5,6 +5,7 @@ import { loadStripe } from "@stripe/stripe-js";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { useToast } from "@/components/providers/ToastProvider";
 import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import { useBooking } from "@/components/providers/BookingProvider";
@@ -19,6 +20,7 @@ function PaymentForm({ clientSecret, paymentIntentId }: { clientSecret: string; 
   const elements = useElements();
   const router = useRouter();
   const { state, setStep } = useBooking();
+  const { toast } = useToast();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -39,7 +41,9 @@ function PaymentForm({ clientSecret, paymentIntentId }: { clientSecret: string; 
     });
 
     if (result.error) {
-      setError(result.error.message ?? "Payment failed.");
+      const message = result.error.message ?? "Payment failed.";
+      setError(message);
+      toast.error(message);
       setSubmitting(false);
       return;
     }
@@ -49,7 +53,9 @@ function PaymentForm({ clientSecret, paymentIntentId }: { clientSecret: string; 
     const referralCode = window.sessionStorage.getItem("referral_code") ?? undefined;
 
     if (!token) {
-      setError("Sign in is required before payment can be confirmed.");
+      const message = "Sign in is required before payment can be confirmed.";
+      setError(message);
+      toast.error(message);
       setSubmitting(false);
       return;
     }
@@ -76,11 +82,14 @@ function PaymentForm({ clientSecret, paymentIntentId }: { clientSecret: string; 
     const data = (await response.json()) as { booking?: { id: string }; error?: string };
 
     if (!response.ok || !data.booking) {
-      setError(data.error ?? "Booking could not be created after payment.");
+      const message = data.error ?? "Booking could not be created after payment.";
+      setError(message);
+      toast.error(message);
       setSubmitting(false);
       return;
     }
 
+    toast.success("Payment confirmed. Your booking is on the way.");
     router.push(`/booking/confirmation/${data.booking.id}`);
   }
 
@@ -103,6 +112,7 @@ function PaymentForm({ clientSecret, paymentIntentId }: { clientSecret: string; 
 
 export function Step5Payment() {
   const { state, setPricing } = useBooking();
+  const { toast } = useToast();
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -156,7 +166,9 @@ export function Step5Payment() {
         }
       } catch (paymentError) {
         if (!cancelled) {
-          setError(paymentError instanceof Error ? paymentError.message : "Could not prepare secure checkout.");
+          const message = paymentError instanceof Error ? paymentError.message : "Could not prepare secure checkout.";
+          setError(message);
+          toast.error(message);
         }
       }
     }
@@ -166,7 +178,7 @@ export function Step5Payment() {
     return () => {
       cancelled = true;
     };
-  }, [setPricing, state.endDate, state.extras, state.promoCode, state.startDate, state.vehicleId]);
+  }, [setPricing, state.endDate, state.extras, state.promoCode, state.startDate, state.vehicleId, toast]);
 
   const options = useMemo(
     () =>

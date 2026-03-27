@@ -9,7 +9,7 @@ export class FirebaseStorageConfigError extends Error {
   }
 }
 
-export async function uploadDocumentWithProgress({
+export async function uploadFileWithProgress({
   file,
   onProgress,
   path,
@@ -44,4 +44,16 @@ export async function uploadDocumentWithProgress({
       },
     );
   });
+}
+
+export async function uploadDocumentWithProgress({
+  file,
+  onProgress,
+  path,
+}: {
+  file: File;
+  onProgress?: (progress: number) => void;
+  path: string;
+}) {
+  return uploadFileWithProgress({ file, onProgress, path });
 }

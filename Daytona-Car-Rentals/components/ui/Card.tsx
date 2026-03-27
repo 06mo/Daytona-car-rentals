@@ -2,8 +2,35 @@ import type { HTMLAttributes } from "react";
 
 import { cn } from "@/lib/utils";
 
-export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("rounded-3xl border border-slate-200 bg-white shadow-sm", className)} {...props} />;
+type CardPadding = "none" | "sm" | "md" | "lg";
+
+const paddingClasses: Record<CardPadding, string> = {
+  none: "",
+  sm: "p-4",
+  md: "p-6",
+  lg: "p-8",
+};
+
+export function Card({
+  className,
+  hover = false,
+  onClick,
+  padding = "none",
+  ...props
+}: HTMLAttributes<HTMLDivElement> & { hover?: boolean; padding?: CardPadding }) {
+  return (
+    <div
+      className={cn(
+        "rounded-3xl border border-slate-200 bg-white shadow-sm",
+        paddingClasses[padding],
+        hover ? "cursor-pointer transition-shadow hover:shadow-md" : "",
+        onClick ? "cursor-pointer" : "",
+        className,
+      )}
+      onClick={onClick}
+      {...props}
+    />
+  );
 }
 
 export function CardHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {

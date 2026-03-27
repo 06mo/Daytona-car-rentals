@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { Menu, X } from "lucide-react";
+import { LogOut, Menu, ShieldCheck, UserCircle2, X } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { onAuthStateChanged, signOut, type User } from "firebase/auth";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
+import { getClientServices } from "@/lib/firebase/client";
 import { cn } from "@/lib/utils";
 import type { NavItem } from "@/types";
 
@@ -18,6 +20,49 @@ const navItems: NavItem[] = [
 export function Navbar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [userRole, setUserRole] = useState<"customer" | "admin" | null>(null);
+
+  useEffect(() => {
+    const services = getClientServices();
+
+    if (!services) {
+      return;
+    }
+
+    return onAuthStateChanged(services.auth, async (user) => {
+      setCurrentUser(user);
+
+      if (!user) {
+        setUserRole(null);
+        return;
+      }
+
+      const tokenResult = await user.getIdTokenResult();
+      setUserRole(tokenResult.claims.role === "admin" ? "admin" : "customer");
+    });
+  }, []);
+
+  async function handleSignOut() {
+    const services = getClientServices();
+
+    if (!services) {
+      return;
+    }
+
+    await signOut(services.auth);
+    document.cookie = "__session=; path=/; max-age=0; SameSite=Strict";
+    window.location.href = "/";
+  }
+
+  const authedItems =
+    userRole === "admin"
+      ? [{ href: "/admin/dashboard", label: "Admin Panel" }]
+      : [
+          { href: "/dashboard", label: "Dashboard" },
+          { href: "/dashboard/bookings", label: "My Bookings" },
+        ];
 
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur-sm">
@@ -42,12 +87,49 @@ export function Navbar() {
         </nav>
 
         <div className="hidden items-center gap-3 lg:flex">
-          <Button asChild variant="ghost" size="sm" href="/login">
-            Log In
-          </Button>
-          <Button asChild size="sm" href="/login">
-            Sign Up
-          </Button>
+          {currentUser ? (
+            <div className="relative">
+              <button
+                className="flex items-center gap-2 rounded-full border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                onClick={() => setMenuOpen((current) => !current)}
+                type="button"
+              >
+                <UserCircle2 className="h-5 w-5 text-orange-500" />
+                <span>{currentUser.displayName ?? currentUser.email?.split("@")[0] ?? "Account"}</span>
+              </button>
+              {menuOpen ? (
+                <div className="absolute right-0 top-12 z-40 grid min-w-52 gap-1 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
+                  {authedItems.map((item) => (
+                    <Link
+                      key={item.href}
+                      className="rounded-xl px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                      href={item.href}
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
+                  <button
+                    className="flex items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
+                    onClick={handleSignOut}
+                    type="button"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Sign Out
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <>
+              <Button asChild variant="ghost" size="sm" href="/login">
+                Log In
+              </Button>
+              <Button asChild size="sm" href="/login">
+                Sign Up
+              </Button>
+            </>
+          )}
         </div>
 
         <button
@@ -77,14 +159,42 @@ export function Navbar() {
                 {item.label}
               </Link>
             ))}
+            {currentUser ? (
+              <>
+                {authedItems.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      "rounded-2xl px-4 py-3 text-base font-medium text-slate-700 hover:bg-slate-100",
+                      pathname === item.href ? "bg-orange-50 text-orange-600" : "",
+                    )}
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <span className="flex items-center gap-2">
+                      {item.label === "Admin Panel" ? <ShieldCheck className="h-4 w-4" /> : <UserCircle2 className="h-4 w-4" />}
+                      {item.label}
+                    </span>
+                  </Link>
+                ))}
+              </>
+            ) : null}
           </div>
           <div className="mt-4 grid gap-3">
-            <Button asChild variant="ghost" href="/login">
-              Log In
-            </Button>
-            <Button asChild href="/login">
-              Sign Up
-            </Button>
+            {currentUser ? (
+              <Button leftIcon={<LogOut className="h-4 w-4" />} onClick={handleSignOut} variant="ghost">
+                Sign Out
+              </Button>
+            ) : (
+              <>
+                <Button asChild variant="ghost" href="/login">
+                  Log In
+                </Button>
+                <Button asChild href="/login">
+                  Sign Up
+                </Button>
+              </>
+            )}
           </div>
         </div>
       ) : null}

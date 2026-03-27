@@ -3,7 +3,7 @@ export type NavItem = {
   label: string;
 };
 
-export type ButtonVariant = "primary" | "secondary" | "ghost";
+export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "outline";
 export type ButtonSize = "sm" | "md" | "lg";
 
 export * from "@/types/analytics";

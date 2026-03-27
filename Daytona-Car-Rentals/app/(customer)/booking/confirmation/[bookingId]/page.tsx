@@ -32,7 +32,8 @@ export default async function BookingConfirmationPage({ params }: PageProps) {
           <p>Booking ID: {booking.id}</p>
           <p>Vehicle: {vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : booking.vehicleId}</p>
           <p>Dates: {booking.startDate.toDateString()} to {booking.endDate.toDateString()}</p>
-          <p>Total paid: {formatCurrency(booking.pricing.depositAmount / 100)}</p>
+          <p>Deposit paid now: {formatCurrency(booking.pricing.depositAmount / 100)}</p>
+          <p>Remaining balance at pickup: {formatCurrency((booking.pricing.totalAmount - booking.pricing.depositAmount) / 100)}</p>
         </div>
         <div className="mt-8 flex gap-3">
           <Button asChild href="/dashboard">View My Bookings</Button>

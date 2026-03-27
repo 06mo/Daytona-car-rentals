@@ -8,7 +8,7 @@ import { useBooking } from "@/components/providers/BookingProvider";
 import { getClientServices } from "@/lib/firebase/client";
 
 export function Step3Documents() {
-  const { setDocumentStatus, setStep, state } = useBooking();
+  const { setDocumentStatus, setDocumentVerificationStatus, setStep, state } = useBooking();
   const [userId, setUserId] = useState("demo-user");
   const [verified, setVerified] = useState(false);
   const [loadingVerification, setLoadingVerification] = useState(true);
@@ -35,17 +35,22 @@ export function Step3Documents() {
         });
         const data = (await response.json()) as {
           profile?: { verificationStatus?: string } | null;
-          verification?: { documents?: Array<{ type: string }> } | null;
+          verification?: { documents?: Array<{ status?: string; type: string }> } | null;
         };
 
         if (!cancelled) {
           setUserId(currentUser.uid);
           setVerified(data.profile?.verificationStatus === "verified");
-          if (data.verification?.documents?.some((doc) => doc.type === "drivers_license")) {
+          const licenseDocument = data.verification?.documents?.find((doc) => doc.type === "drivers_license");
+          const insuranceDocument = data.verification?.documents?.find((doc) => doc.type === "insurance_card");
+
+          if (licenseDocument) {
             setDocumentStatus("license", true);
+            setDocumentVerificationStatus("license", licenseDocument.status === "approved");
           }
-          if (data.verification?.documents?.some((doc) => doc.type === "insurance_card")) {
+          if (insuranceDocument) {
             setDocumentStatus("insurance", true);
+            setDocumentVerificationStatus("insurance", insuranceDocument.status === "approved");
           }
         }
       } finally {
@@ -60,7 +65,7 @@ export function Step3Documents() {
     return () => {
       cancelled = true;
     };
-  }, [setDocumentStatus]);
+  }, [setDocumentStatus, setDocumentVerificationStatus]);
 
   useEffect(() => {
     if (verified) {
@@ -89,14 +94,30 @@ export function Step3Documents() {
       <div className="rounded-3xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-700">
         Upload both documents to continue. Under review, we&apos;ll verify everything before your trip.
       </div>
+      {(state.documents.licenseUploaded || state.documents.insuranceUploaded) ? (
+        <div className="grid gap-2 text-sm text-slate-600">
+          {state.documents.licenseUploaded ? (
+            <p>Driver&apos;s License: {state.documents.licenseVerified ? "Verified" : "Uploaded and pending review"}</p>
+          ) : null}
+          {state.documents.insuranceUploaded ? (
+            <p>Insurance Card: {state.documents.insuranceVerified ? "Verified" : "Uploaded and pending review"}</p>
+          ) : null}
+        </div>
+      ) : null}
       <div className="grid gap-4 md:grid-cols-2">
         <DocumentUpload
-          onUploadComplete={() => setDocumentStatus("license", true)}
+          onUploadComplete={() => {
+            setDocumentStatus("license", true);
+            setDocumentVerificationStatus("license", false);
+          }}
           type="drivers_license"
           userId={userId}
         />
         <DocumentUpload
-          onUploadComplete={() => setDocumentStatus("insurance", true)}
+          onUploadComplete={() => {
+            setDocumentStatus("insurance", true);
+            setDocumentVerificationStatus("insurance", false);
+          }}
           type="insurance_card"
           userId={userId}
         />

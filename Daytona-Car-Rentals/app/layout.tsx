@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 
 import { AnalyticsTracker } from "@/components/analytics/AnalyticsTracker";
+import { ToastProvider } from "@/components/providers/ToastProvider";
 import { ReferralTracker } from "@/components/analytics/ReferralTracker";
 import "./globals.css";
 import { SiteShell } from "@/components/layout/SiteShell";
@@ -19,11 +20,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="font-sans">
-        <Suspense fallback={null}>
-          <AnalyticsTracker />
-          <ReferralTracker />
-        </Suspense>
-        <SiteShell>{children}</SiteShell>
+        <ToastProvider>
+          <Suspense fallback={null}>
+            <AnalyticsTracker />
+            <ReferralTracker />
+          </Suspense>
+          <SiteShell>{children}</SiteShell>
+        </ToastProvider>
       </body>
     </html>
   );

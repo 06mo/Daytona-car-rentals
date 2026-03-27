@@ -31,6 +31,7 @@ type BookingContextValue = {
   promoError: string | null;
   setPromoCode: (code: string) => void;
   setDocumentStatus: (type: "license" | "insurance", uploaded: boolean) => void;
+  setDocumentVerificationStatus: (type: "license" | "insurance", verified: boolean) => void;
   setPricing: (pricing: BookingPricing) => void;
   setStep: (step: number) => void;
   state: BookingState;
@@ -199,6 +200,17 @@ export function BookingProvider({
     }));
   }
 
+  function setDocumentVerificationStatus(type: "license" | "insurance", verified: boolean) {
+    setState((current) => ({
+      ...current,
+      documents: {
+        ...current.documents,
+        licenseVerified: type === "license" ? verified : current.documents.licenseVerified,
+        insuranceVerified: type === "insurance" ? verified : current.documents.insuranceVerified,
+      },
+    }));
+  }
+
   function setPricing(pricing: BookingPricing) {
     setState((current) => ({ ...current, pricing, totalDays: pricing.totalDays }));
   }
@@ -219,6 +231,7 @@ export function BookingProvider({
         updateLocation,
         toggleExtra,
         setDocumentStatus,
+        setDocumentVerificationStatus,
         setPricing,
         vehicle,
         extrasPricing,

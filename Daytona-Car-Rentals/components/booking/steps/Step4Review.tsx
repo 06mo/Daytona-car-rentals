@@ -2,14 +2,15 @@
 
 import { useState } from "react";
 
+import { useToast } from "@/components/providers/ToastProvider";
 import { Button } from "@/components/ui/Button";
 import { useBooking } from "@/components/providers/BookingProvider";
 import { formatCurrency } from "@/lib/utils";
 
 export function Step4Review() {
   const { setStep, state, vehicle } = useBooking();
+  const { toast } = useToast();
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const surchargeAmount = state.pricing.surchargeAmount ?? 0;
   const discountAmount = state.pricing.discountAmount ?? 0;
   const subtotal = state.pricing.baseAmount + surchargeAmount - discountAmount;
@@ -25,11 +26,10 @@ export function Step4Review() {
 
   function handleContinue() {
     if (!acceptedTerms) {
-      setError("Please accept the terms to continue.");
+      toast.error("Please accept the rental terms to continue.");
       return;
     }
 
-    setError(null);
     void fetch("/api/analytics/track", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -87,7 +87,6 @@ export function Step4Review() {
         <input checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} type="checkbox" />
         <span>I agree to the Rental Terms & Conditions.</span>
       </label>
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
       <div className="flex gap-3">
         <Button onClick={() => setStep(3)} type="button" variant="secondary">Back</Button>
         <Button onClick={handleContinue} type="button">Proceed to Payment</Button>

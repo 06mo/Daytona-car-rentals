@@ -1,8 +1,23 @@
 import "server-only";
 
 import type { Vehicle, VehicleFilters } from "@/types";
-import { FirebaseConfigError, getDocument, listDocuments } from "@/lib/firebase/firestore";
+import { FirebaseConfigError, getDocument, listDocuments, setDocument, updateDocument } from "@/lib/firebase/firestore";
 import { mockVehicles } from "@/lib/data/mockVehicles";
+
+type UpsertVehicleInput = Omit<Vehicle, "createdAt" | "updatedAt" | "id"> & {
+  id?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+};
+
+function createVehicleId(input: Pick<Vehicle, "make" | "model" | "year">) {
+  const base = `${input.make}-${input.model}-${input.year}`
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return `${base || "vehicle"}-${Date.now().toString(36)}`;
+}
 
 export async function getVehicleById(vehicleId: string) {
   try {
@@ -64,5 +79,65 @@ export async function listVehicles(filters?: VehicleFilters) {
 
       return true;
     });
+  }
+}
+
+export async function createVehicle(input: UpsertVehicleInput) {
+  const now = new Date();
+  const vehicleId = input.id || createVehicleId(input);
+  const vehicle: Vehicle = {
+    ...input,
+    id: vehicleId,
+    createdAt: input.createdAt ?? now,
+    updatedAt: input.updatedAt ?? now,
+  };
+
+  try {
+    await setDocument(`vehicles/${vehicleId}`, vehicle);
+    return vehicle;
+  } catch (error) {
+    if (!(error instanceof FirebaseConfigError)) {
+      throw error;
+    }
+
+    mockVehicles.unshift(vehicle);
+    return vehicle;
+  }
+}
+
+export async function updateVehicle(vehicleId: string, input: Partial<Omit<Vehicle, "id" | "createdAt">>) {
+  const existingVehicle = await getVehicleById(vehicleId);
+
+  if (!existingVehicle) {
+    throw new Error("Vehicle not found.");
+  }
+
+  const nextVehicle: Vehicle = {
+    ...existingVehicle,
+    ...input,
+    id: vehicleId,
+    updatedAt: new Date(),
+  };
+
+  try {
+    await updateDocument<Vehicle>(`vehicles/${vehicleId}`, {
+      ...input,
+      updatedAt: nextVehicle.updatedAt,
+    });
+    return nextVehicle;
+  } catch (error) {
+    if (!(error instanceof FirebaseConfigError)) {
+      throw error;
+    }
+
+    const index = mockVehicles.findIndex((vehicle) => vehicle.id === vehicleId);
+
+    if (index >= 0) {
+      mockVehicles[index] = nextVehicle;
+    } else {
+      mockVehicles.unshift(nextVehicle);
+    }
+
+    return nextVehicle;
   }
 }
