@@ -37,7 +37,7 @@ export async function updateUserVerificationStatus(
 ) {
   const existing = await getUserProfile(userId);
 
-  await setDocument<UserProfile>(
+  await setDocument(
     getUserDocumentPath(userId),
     { verificationStatus, updatedAt: new Date() },
     { merge: true },
@@ -104,7 +104,7 @@ export async function syncRepeatCustomerProfile(userId: string) {
     return user;
   }
 
-  await setDocument<UserProfile>(
+  await setDocument(
     getUserDocumentPath(userId),
     {
       completedBookingsCount,

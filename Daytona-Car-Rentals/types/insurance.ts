@@ -121,3 +121,30 @@ export interface ClaimsEvidencePackage {
   timelineSummary: Record<string, unknown>[];
   auditEventRefs: string[];
 }
+
+export interface InsuranceVerificationSummary {
+  bookingId: string;
+  verificationId?: string;
+  status: InsuranceVerificationStatus;
+  blockingReasons: InsuranceBlockingReason[];
+  approvalReasons?: string[];
+  carrierName?: string;
+  namedInsuredMatch?: boolean;
+  effectiveDate?: Date;
+  expirationDate?: Date;
+  hasComprehensiveCollision?: boolean;
+  liabilityLimitsCents?: number;
+  rentalUseConfirmed?: boolean;
+  verifiedBy?: "admin" | "provider" | "system";
+  providerId?: string;
+  documentId?: string;
+  resolvedAt?: Date;
+  updatedAt?: Date;
+  coverageDecisionStatus?: CoverageDecisionStatus;
+  coverageSource?: CoverageSource;
+  bookingStatus?: string;
+  overrideApplied?: boolean;
+  overrideBy?: string;
+  overrideReason?: string;
+  overrideAt?: Date;
+}

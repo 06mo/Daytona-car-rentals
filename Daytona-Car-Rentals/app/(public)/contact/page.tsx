@@ -25,10 +25,10 @@ export default function ContactPage() {
             <div>
               <p className="font-medium text-slate-900">Phone</p>
               <a
-                href="tel:+13865550100"
+                href="tel:+13868984035"
                 className="mt-1 text-slate-600 hover:text-brand-600"
               >
-                (386) 555-0100
+                (386) 898-4035
               </a>
               <p className="mt-1 text-sm text-slate-500">Mon–Sat 8 AM – 6 PM ET</p>
             </div>
@@ -56,11 +56,16 @@ export default function ContactPage() {
             </div>
             <div>
               <p className="font-medium text-slate-900">Location</p>
-              <p className="mt-1 text-slate-600">
-                Near Daytona Beach International Airport
+              <a
+                className="mt-1 inline-block text-slate-600 hover:text-brand-600"
+                href="https://maps.google.com/?q=2500+W+International+Speedway+Blvd,+Daytona+Beach,+FL"
+                rel="noreferrer"
+                target="_blank"
+              >
+                2500 W International Speedway Blvd
                 <br />
                 Daytona Beach, FL 32114
-              </p>
+              </a>
               <p className="mt-1 text-sm text-slate-500">
                 Pickup and drop-off by appointment.
               </p>

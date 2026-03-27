@@ -657,7 +657,7 @@ tasks:
 - id: DCR-065
   title: Implement renter policy verification workflow
   owner: Codex
-  status: Proposed
+  status: complete
   depends_on:
       - DCR-064
       - DCR-066
@@ -811,7 +811,7 @@ tasks:
 - id: DCR-067
   title: Build admin insurance review panel
   owner: Codex
-  status: Proposed
+  status: complete
   depends_on:
       - DCR-065
       - DCR-068
@@ -969,7 +969,7 @@ tasks:
 - id: DCR-069
   title: Add embedded insurance provider adapter interface
   owner: Codex
-  status: Proposed
+  status: complete
   depends_on:
       - DCR-068
   deliverable: provider abstraction layer under lib/insurance/providers/

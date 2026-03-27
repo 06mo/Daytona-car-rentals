@@ -3,7 +3,10 @@ import "server-only";
 import { addDocument, FirebaseConfigError, getDocument, listDocuments, updateDocument } from "@/lib/firebase/firestore";
 import { normalizeInsuranceVerificationResult, type NormalizeInsuranceVerificationInput } from "@/lib/insurance/normalize";
 import { reportMonitoringEvent } from "@/lib/monitoring/monitoring";
-import { evaluateCoverageDecisionForBooking } from "@/lib/services/coverageDecisionService";
+import {
+  evaluateCoverageDecisionForBooking,
+  getLatestCoverageDecisionForBooking,
+} from "@/lib/services/coverageDecisionService";
 import { getUserDocument } from "@/lib/services/documentService";
 import { getBookingById } from "@/lib/services/bookingService";
 import { logAuditEvent } from "@/lib/services/auditService";
@@ -84,7 +87,7 @@ async function safelyReevaluateCoverage(bookingId: string) {
 }
 
 function toSummary(booking: Booking, verification: InsuranceVerification | null): InsuranceVerificationSummary {
-  return {
+  const summary: InsuranceVerificationSummary = {
     bookingId: booking.id,
     verificationId: verification?.id,
     status: verification?.status ?? "unsubmitted",
@@ -104,6 +107,27 @@ function toSummary(booking: Booking, verification: InsuranceVerification | null)
     coverageDecisionStatus: booking.coverageDecisionStatus,
     coverageSource: booking.coverageSource,
     bookingStatus: booking.status,
+    overrideApplied: booking.insuranceOverrideApplied,
+  };
+
+  return summary;
+}
+
+async function toSummaryWithDecision(booking: Booking, verification: InsuranceVerification | null): Promise<InsuranceVerificationSummary> {
+  const summary = toSummary(booking, verification);
+  const decision = await getLatestCoverageDecisionForBooking(booking.id);
+
+  if (!decision) {
+    return summary;
+  }
+
+  return {
+    ...summary,
+    approvalReasons: decision.approvalReasons,
+    overrideApplied: decision.overrideApplied,
+    overrideBy: decision.overrideBy,
+    overrideReason: decision.overrideReason,
+    overrideAt: decision.overrideAt,
   };
 }
 
@@ -135,7 +159,7 @@ export async function summarizeInsuranceVerificationForBooking(bookingId: string
   }
 
   const verification = await getLatestInsuranceVerificationForBooking(bookingId);
-  return toSummary(booking, verification);
+  return toSummaryWithDecision(booking, verification);
 }
 
 export async function createInsuranceVerificationRequest(input: CreateInsuranceVerificationRequestInput) {
@@ -207,7 +231,7 @@ export async function createInsuranceVerificationRequest(input: CreateInsuranceV
   return {
     booking: updatedBooking,
     verification,
-    summary: toSummary(updatedBooking, verification),
+    summary: await toSummaryWithDecision(updatedBooking, verification),
   };
 }
 
@@ -278,6 +302,6 @@ export async function finalizeInsuranceVerification(input: FinalizeInsuranceVeri
   return {
     booking: updatedBooking,
     verification: updatedVerification,
-    summary: toSummary(updatedBooking, updatedVerification),
+    summary: await toSummaryWithDecision(updatedBooking, updatedVerification),
   };
 }

@@ -172,7 +172,13 @@ export default async function AdminBookingDetailPage({ params }: PageProps) {
             <h2 className="text-lg font-semibold text-slate-900">Insurance Verification</h2>
             <div className="mt-4">
               {insuranceSummary ? (
-                <InsuranceReviewPanel bookingId={booking.id} summary={insuranceSummary} />
+                <InsuranceReviewPanel
+                  bookingId={booking.id}
+                  protectionPackage={protectionPackage.name}
+                  rentalChannel={booking.rentalChannel ?? "direct"}
+                  riskLevel={booking.riskLevel}
+                  summary={insuranceSummary}
+                />
               ) : (
                 <p className="text-sm text-slate-500">No verification data available.</p>
               )}

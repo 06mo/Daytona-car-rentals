@@ -1,4 +1,5 @@
 import type { Partner, ProtectionPackageId, RiskLevel } from "@/types";
+import type { EmbeddedPolicyBindResult } from "@/lib/insurance/providers/types";
 import type {
   CoverageDecisionStatus,
   CoverageSource,
@@ -27,6 +28,7 @@ export type EvaluateCoverageDecisionInput = {
   partner?: Partner | null;
   platformTripId?: string;
   verification?: InsuranceVerification | null;
+  embeddedPolicyResult?: EmbeddedPolicyBindResult | null;
 };
 
 export type EvaluatedCoverageDecision = CoverageEvaluationResult & {
@@ -127,21 +129,44 @@ export function evaluateCoverageDecision(input: EvaluateCoverageDecisionInput): 
       input.platformTripId,
     )
   ) {
-    const coverageSource: CoverageSource =
-      verification?.providerId || rules.preferredCoverageSource === "embedded_policy"
-        ? rules.preferredCoverageSource
-        : "renter_policy";
+    const coverageSource: CoverageSource = input.embeddedPolicyResult?.status === "bound" ? "embedded_policy" : "renter_policy";
+    const approvalReasons =
+      input.embeddedPolicyResult?.status === "bound"
+        ? input.embeddedPolicyResult.approvalReasons ?? ["Embedded coverage policy bound successfully."]
+        : ["Renter coverage is verified for this booking."];
 
     return {
       status: "approved",
       coverageSource,
       blockingReasons: [],
-      approvalReasons: [
-        coverageSource === "renter_policy"
-          ? "Renter coverage is verified for this booking."
-          : "Coverage can proceed through the embedded policy path.",
-      ],
+      approvalReasons,
       bookingStatus: "insurance_cleared",
+    };
+  }
+
+  if (input.embeddedPolicyResult) {
+    if (input.embeddedPolicyResult.status === "bound") {
+      return {
+        status: "approved",
+        coverageSource: "embedded_policy",
+        blockingReasons: [],
+        approvalReasons: input.embeddedPolicyResult.approvalReasons ?? ["Embedded coverage policy bound successfully."],
+        bookingStatus: "insurance_cleared",
+      };
+    }
+
+    const providerBlockingReasons = uniqueReasons(
+      input.embeddedPolicyResult.blockingReasons.length > 0
+        ? input.embeddedPolicyResult.blockingReasons
+        : ["provider_unavailable"],
+    );
+
+    return {
+      status: "manual_review",
+      coverageSource: "embedded_policy",
+      blockingReasons: providerBlockingReasons,
+      approvalReasons: [],
+      bookingStatus: "insurance_manual_review",
     };
   }
 

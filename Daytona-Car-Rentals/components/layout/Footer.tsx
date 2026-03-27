@@ -65,18 +65,23 @@ export function Footer() {
         <div className="space-y-4">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">Contact</p>
           <div className="grid gap-3 text-sm">
-            <p className="flex items-center gap-2">
+            <a className="flex items-center gap-2 hover:text-white" href="tel:+13868984035">
               <Phone className="h-4 w-4" />
-              (386) 555-0132
-            </p>
+              (386) 898-4035
+            </a>
             <p className="flex items-center gap-2">
               <Mail className="h-4 w-4" />
               hello@daytonacarrentals.com
             </p>
-            <p className="flex items-center gap-2">
+            <a
+              className="flex items-center gap-2 hover:text-white"
+              href="https://maps.google.com/?q=2500+W+International+Speedway+Blvd,+Daytona+Beach,+FL"
+              rel="noreferrer"
+              target="_blank"
+            >
               <MapPin className="h-4 w-4" />
-              801 International Speedway Blvd, Daytona Beach, FL
-            </p>
+              2500 W International Speedway Blvd, Daytona Beach, FL
+            </a>
           </div>
         </div>
 

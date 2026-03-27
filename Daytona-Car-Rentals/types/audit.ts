@@ -1,6 +1,7 @@
 export type AuditEntityType =
   | "booking"
   | "document"
+  | "insurance"
   | "payment"
   | "user"
   | "vehicle";
@@ -21,6 +22,9 @@ export type AuditAction =
   | "document.submitted"
   | "document.approved"
   | "document.rejected"
+  | "insurance.verification_requested"
+  | "insurance.verification_resolved"
+  | "insurance.override_applied"
   | "payment.intent_created"
   | "payment.succeeded"
   | "payment.failed"
