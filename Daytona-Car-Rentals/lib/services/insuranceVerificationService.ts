@@ -2,6 +2,9 @@ import "server-only";
 
 import { addDocument, FirebaseConfigError, getDocument, listDocuments, updateDocument } from "@/lib/firebase/firestore";
 import { normalizeInsuranceVerificationResult, type NormalizeInsuranceVerificationInput } from "@/lib/insurance/normalize";
+import { getAxleProvider } from "@/lib/insurance/providers/axle";
+import { getEmbeddedInsuranceProvider } from "@/lib/insurance/providers/embedded";
+import type { ProviderAdapter, RenterPolicyVerificationResult } from "@/lib/insurance/providers/types";
 import { reportMonitoringEvent } from "@/lib/monitoring/monitoring";
 import {
   evaluateCoverageDecisionForBooking,
@@ -15,6 +18,7 @@ import type {
   Booking,
   InsuranceVerification,
   InsuranceVerificationSummary,
+  PolicyEvent,
 } from "@/types";
 
 const globalMockStore = globalThis as typeof globalThis & {
@@ -43,12 +47,43 @@ type FinalizeInsuranceVerificationInput = NormalizeInsuranceVerificationInput & 
   verificationId: string;
 };
 
+function getPolicyEventCollectionPath() {
+  return "policy_events";
+}
+
 function getCollectionPath() {
   return "insurance_verifications";
 }
 
 function getDocumentPath(verificationId: string) {
   return `${getCollectionPath()}/${verificationId}`;
+}
+
+function getRenterPolicyProvider(): ProviderAdapter | null {
+  const configuredProvider = process.env.INSURANCE_RENTER_POLICY_PROVIDER?.trim().toLowerCase();
+
+  if (!configuredProvider || configuredProvider === "mock") {
+    return getEmbeddedInsuranceProvider();
+  }
+
+  if (configuredProvider === "axle") {
+    return getAxleProvider();
+  }
+
+  return getEmbeddedInsuranceProvider();
+}
+
+async function persistPolicyEvent(input: Omit<PolicyEvent, "id">) {
+  try {
+    const id = await addDocument(getPolicyEventCollectionPath(), input);
+    return { id, ...input };
+  } catch (error) {
+    if (error instanceof FirebaseConfigError) {
+      return null;
+    }
+
+    throw error;
+  }
 }
 
 function getMockVerificationById(verificationId: string) {
@@ -83,6 +118,120 @@ async function safelyReevaluateCoverage(bookingId: string) {
     });
 
     return null;
+  }
+}
+
+function toFinalizeInputFromProviderResult(
+  verificationId: string,
+  result: RenterPolicyVerificationResult,
+): FinalizeInsuranceVerificationInput {
+  return {
+    verificationId,
+    actorId: result.providerId,
+    actorRole: "system",
+    status:
+      result.status === "manual_review"
+        ? "unverifiable"
+        : result.status,
+    blockingReasons: result.blockingReasons,
+    carrierName: result.carrierName,
+    namedInsuredMatch: result.namedInsuredMatch,
+    effectiveDate: result.effectiveDate,
+    expirationDate: result.expirationDate,
+    hasComprehensiveCollision: result.hasComprehensiveCollision,
+    liabilityLimitsCents: result.liabilityLimitsCents,
+    rentalUseConfirmed: result.rentalUseConfirmed,
+    providerId: result.providerId,
+    providerReferenceId: result.providerReferenceId,
+    verifiedBy: "provider",
+  };
+}
+
+async function attemptProviderVerification(
+  booking: Booking,
+  verification: InsuranceVerification,
+): Promise<
+  | {
+      booking: Booking;
+      verification: InsuranceVerification;
+      summary: InsuranceVerificationSummary;
+    }
+  | null
+> {
+  const provider = getRenterPolicyProvider();
+
+  if (!provider?.verifyRenterPolicy) {
+    return null;
+  }
+
+  await persistPolicyEvent({
+    bookingId: booking.id,
+    userId: booking.userId,
+    type: "verification_initiated",
+    status: "attempted",
+    coverageSource: "renter_policy",
+    providerId: provider.id,
+    createdAt: new Date(),
+  });
+
+  try {
+    const providerResult = await provider.verifyRenterPolicy({
+      bookingId: booking.id,
+      userId: booking.userId,
+      vehicleId: booking.vehicleId,
+      startDate: booking.startDate,
+      endDate: booking.endDate,
+      documentId: verification.documentId,
+      carrierName: verification.carrierName,
+    });
+
+    await persistPolicyEvent({
+      bookingId: booking.id,
+      userId: booking.userId,
+      type: "verification_resolved",
+      status: providerResult.status === "verified" ? "succeeded" : "failed",
+      coverageSource: "renter_policy",
+      providerId: providerResult.providerId,
+      providerReferenceId: providerResult.providerReferenceId,
+      errorMessage: providerResult.errorMessage,
+      createdAt: new Date(),
+    });
+
+    return finalizeInsuranceVerification(toFinalizeInputFromProviderResult(verification.id, providerResult));
+  } catch (error) {
+    await persistPolicyEvent({
+      bookingId: booking.id,
+      userId: booking.userId,
+      type: "verification_resolved",
+      status: "failed",
+      coverageSource: "renter_policy",
+      providerId: provider.id,
+      errorMessage: error instanceof Error ? error.message : "Renter policy verification request failed.",
+      createdAt: new Date(),
+    });
+
+    await reportMonitoringEvent({
+      source: "services.insuranceVerification",
+      message: "Provider verification failed; booking left in a safe review state.",
+      severity: error instanceof FirebaseConfigError ? "warning" : "error",
+      error,
+      context: {
+        bookingId: booking.id,
+        verificationId: verification.id,
+        providerId: provider.id,
+      },
+      alert: !(error instanceof FirebaseConfigError),
+    });
+
+    return finalizeInsuranceVerification({
+      verificationId: verification.id,
+      actorId: provider.id,
+      actorRole: "system",
+      status: "unverifiable",
+      blockingReasons: ["provider_unavailable"],
+      providerId: provider.id,
+      verifiedBy: "provider",
+    });
   }
 }
 
@@ -224,6 +373,12 @@ export async function createInsuranceVerificationRequest(input: CreateInsuranceV
       providerId: verification.providerId,
     },
   });
+
+  const providerResult = await attemptProviderVerification(booking, verification);
+
+  if (providerResult) {
+    return providerResult;
+  }
 
   const reevaluation = await safelyReevaluateCoverage(booking.id);
   const updatedBooking = reevaluation?.booking ?? (await getBookingById(booking.id)) ?? booking;

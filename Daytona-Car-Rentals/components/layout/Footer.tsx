@@ -9,7 +9,7 @@ const exploreLinks = [
 
 const supportLinks = [
   { href: "/contact", label: "FAQ" },
-  { href: "/contact", label: "Terms" },
+  { href: "/terms", label: "Terms" },
   { href: "/contact", label: "Privacy Policy" },
 ];
 

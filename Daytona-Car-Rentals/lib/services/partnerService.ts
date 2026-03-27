@@ -1,6 +1,6 @@
 import "server-only";
 
-import { FirebaseConfigError, listDocuments } from "@/lib/firebase/firestore";
+import { FirebaseConfigError, getDocument, listDocuments } from "@/lib/firebase/firestore";
 import type { Booking, Partner, PartnerStats } from "@/types";
 
 const PARTNER_CODE_PATTERN = /^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/;
@@ -57,6 +57,19 @@ export async function listPartners(): Promise<Partner[]> {
 
     console.error("[partner] Failed to list partners:", error);
     return [];
+  }
+}
+
+export async function getPartnerById(partnerId: string): Promise<Partner | null> {
+  try {
+    return await getDocument<Partner>(`partners/${partnerId}`);
+  } catch (error) {
+    if (error instanceof FirebaseConfigError) {
+      return null;
+    }
+
+    console.error("[partner] Failed to load partner by id:", partnerId, error);
+    return null;
   }
 }
 

@@ -1,9 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
+import { RentalTermsContent } from "@/components/legal/RentalTermsContent";
 import { useToast } from "@/components/providers/ToastProvider";
 import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
 import { useBooking } from "@/components/providers/BookingProvider";
 import { formatBookingDateTime } from "@/lib/utils/bookingDateTime";
 import { formatCurrency } from "@/lib/utils";
@@ -12,6 +15,7 @@ export function Step4Review() {
   const { setStep, state, vehicle } = useBooking();
   const { toast } = useToast();
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [termsOpen, setTermsOpen] = useState(false);
   const surchargeAmount = state.pricing.surchargeAmount ?? 0;
   const discountAmount = state.pricing.discountAmount ?? 0;
   const subtotal = state.pricing.baseAmount + surchargeAmount - discountAmount;
@@ -95,14 +99,63 @@ export function Step4Review() {
               : "Standard protection includes CDW coverage with a $500 deductible."}
         </p>
       </div>
-      <label className="flex items-start gap-3 text-sm text-slate-700">
-        <input checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} type="checkbox" />
-        <span>I agree to the Rental Terms & Conditions.</span>
-      </label>
+      <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-base font-semibold text-slate-900">Rental Terms & Conditions</p>
+            <p className="mt-1 text-sm text-slate-600">
+              Review the rental agreement before continuing to payment.
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <Button onClick={() => setTermsOpen(true)} type="button" variant="secondary">
+              Read Terms
+            </Button>
+            <Button asChild href="/terms" target="_blank" rel="noreferrer" type="button" variant="ghost">
+              Open Full Page
+            </Button>
+          </div>
+        </div>
+        <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-600">
+          <p>
+            By proceeding, the renter agrees to driver eligibility requirements, payment and deposit terms, pickup and
+            return obligations, protection and insurance conditions, prohibited-use restrictions, and responsibility for
+            tolls, tickets, damages, and approved adjustments.
+          </p>
+        </div>
+        <label className="mt-4 flex items-start gap-3 text-sm text-slate-700">
+          <input checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} type="checkbox" />
+          <span>
+            I have reviewed and agree to the{" "}
+            <button className="font-semibold text-orange-500 underline underline-offset-2" onClick={() => setTermsOpen(true)} type="button">
+              Rental Terms & Conditions
+            </button>
+            .
+          </span>
+        </label>
+      </div>
       <div className="flex gap-3">
         <Button onClick={() => setStep(3)} type="button" variant="secondary">Back</Button>
         <Button onClick={handleContinue} type="button">Proceed to Payment</Button>
       </div>
+      <Modal
+        open={termsOpen}
+        title="Rental Terms & Conditions"
+        description="Please review the rental agreement before proceeding to payment."
+        onClose={() => setTermsOpen(false)}
+      >
+        <div className="max-h-[65vh] overflow-y-auto pr-1">
+          <RentalTermsContent compact />
+        </div>
+        <div className="mt-6 flex items-center justify-between gap-3 border-t border-slate-200 pt-4">
+          <Link className="text-sm font-semibold text-orange-500 underline underline-offset-2" href="/terms" target="_blank" rel="noreferrer">
+            Open printable page
+          </Link>
+          <Button onClick={() => setTermsOpen(false)} type="button">
+            Close
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }

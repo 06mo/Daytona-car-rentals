@@ -5,6 +5,7 @@ import { Timestamp } from "firebase-admin/firestore";
 
 import { FirebaseConfigError, getDocument, listDocuments, requireDb, updateDocument } from "@/lib/firebase/firestore";
 import { logAuditEvent } from "@/lib/services/auditService";
+import { assertBookingChannelCompliance } from "@/lib/services/channelComplianceService";
 import { hasSubmittedChecklist } from "@/lib/services/checklistService";
 import {
   notifyBookingCancelledByAdmin,
@@ -16,6 +17,7 @@ import { getUserProfile, syncRepeatCustomerProfile } from "@/lib/services/userSe
 import { checkVehicleAvailability, getDateRangeInDays } from "@/lib/utils/dateUtils";
 import { getVehicleById } from "@/lib/services/vehicleService";
 import { evaluateBookingRisk } from "@/lib/services/riskEngine";
+import { getPartnerById } from "@/lib/services/partnerService";
 
 function getBookingCollectionPath() {
   return "bookings";
@@ -81,6 +83,14 @@ export async function createBooking(
   }
 
   const now = new Date();
+  const partner = input.partnerId ? await getPartnerById(input.partnerId) : null;
+
+  assertBookingChannelCompliance({
+    rentalChannel: input.rentalChannel,
+    partner,
+    platformTripId: input.platformTripId,
+  });
+
   const riskProfile = await evaluateBookingRisk({
     userId: input.userId,
     vehicle,

@@ -110,6 +110,16 @@ export function evaluateCoverageDecision(input: EvaluateCoverageDecisionInput): 
       };
     }
 
+    if (input.partner.coverageResponsibility === "daytona") {
+      return {
+        status: "manual_review",
+        coverageSource: "none",
+        blockingReasons: ["manual_review_required"],
+        approvalReasons: [],
+        bookingStatus: "insurance_manual_review",
+      };
+    }
+
     return {
       status: "approved",
       coverageSource: "partner_policy",

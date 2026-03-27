@@ -8,6 +8,7 @@ import { BookingStatusBadge } from "@/components/admin/BookingStatusBadge";
 import { InsuranceReviewPanel } from "@/components/admin/InsuranceReviewPanel";
 import { getProtectionPackageDefinition } from "@/lib/protection/config";
 import { computeRemainingBalance, listAdjustments } from "@/lib/services/adjustmentService";
+import { getAdminChannelMetadata } from "@/lib/services/channelComplianceService";
 import { getChecklist } from "@/lib/services/checklistService";
 import { getBookingTimeline, listAdminUsers, listAdminVehicles, listUserDocumentsForAdmin } from "@/lib/services/adminService";
 import { getBookingById } from "@/lib/services/bookingService";
@@ -71,6 +72,7 @@ export default async function AdminBookingDetailPage({ params }: PageProps) {
         : null;
   const needsInsuranceReviewWarning =
     booking.status === "confirmed" && protectionPackageId === "basic" && insuranceDocument?.status === "pending";
+  const channelMetadata = getAdminChannelMetadata(booking, partner);
   const baseBalance = booking.pricing.totalAmount - booking.pricing.depositAmount;
   const remainingBalance = computeRemainingBalance(booking, adjustments);
 
@@ -79,6 +81,11 @@ export default async function AdminBookingDetailPage({ params }: PageProps) {
       {needsInsuranceReviewWarning ? (
         <div className="rounded-[2rem] border border-amber-200 bg-amber-50 px-6 py-4 text-sm font-medium text-amber-800">
           Insurance review required before pickup.
+        </div>
+      ) : null}
+      {channelMetadata.complianceIssues.length > 0 ? (
+        <div className="rounded-[2rem] border border-red-200 bg-red-50 px-6 py-4 text-sm font-medium text-red-800">
+          Channel compliance issue: {channelMetadata.complianceIssues.join(" ")}
         </div>
       ) : null}
       <div className="flex items-center justify-between">
@@ -107,7 +114,13 @@ export default async function AdminBookingDetailPage({ params }: PageProps) {
                   Referral: {booking.referralCode} {partner ? `(${partner.name})` : "(unrecognised)"}
                 </p>
               ) : null}
-              <p>Rental channel: {booking.rentalChannel ?? "direct"}</p>
+              <p>Rental channel: {channelMetadata.rentalChannel}</p>
+              <p>Coverage source: {channelMetadata.coverageSource.replaceAll("_", " ")}</p>
+              {channelMetadata.platformTripId ? <p>External trip ID: {channelMetadata.platformTripId}</p> : null}
+              {channelMetadata.partnerName ? <p>Partner: {channelMetadata.partnerName}</p> : null}
+              {channelMetadata.partnerCoverageResponsibility ? (
+                <p>Partner coverage responsibility: {channelMetadata.partnerCoverageResponsibility}</p>
+              ) : null}
             </div>
           </div>
           <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">

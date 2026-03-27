@@ -1028,7 +1028,7 @@ tasks:
 - id: DCR-070
   title: Implement first provider integration
   owner: Codex
-  status: Proposed
+  status: complete
   depends_on:
       - DCR-069
       - DCR-065
@@ -1152,7 +1152,7 @@ tasks:
 - id: DCR-072
   title: Add channel aware booking compliance rules
   owner: Codex
-  status: Proposed
+  status: complete
   depends_on:
       - DCR-068
       - DCR-069

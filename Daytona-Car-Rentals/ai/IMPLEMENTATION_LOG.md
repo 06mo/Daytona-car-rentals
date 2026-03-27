@@ -70,14 +70,14 @@
 | DCR-062 | Harden auth integrity for magic link flow | Claude | ✅ Complete | `ai/DCR-062-magic-link-auth-integrity.md` |
 | DCR-063 | Design insurance control plane | Claude | ✅ Complete | `ai/DCR-063-insurance-control-plane.md` |
 | DCR-064 | Implement insurance domain types + Firestore schema | Codex | ✅ Complete | `types/insurance.ts`, Firestore schema/rules/index updates |
-| DCR-065 | Implement renter policy verification workflow | Codex | ⏳ Proposed | `lib/services/insuranceVerificationService.ts`, `app/api/insurance/verify-renter-policy/route.ts` |
+| DCR-065 | Implement renter policy verification workflow | Codex | ✅ Complete | `lib/services/insuranceVerificationService.ts`, `app/api/insurance/verify-renter-policy/route.ts` |
 | DCR-066 | Add booking status split (payment authorized vs insurance cleared) | Codex | ✅ Complete | Booking flow + Stripe webhook updates |
-| DCR-067 | Build admin insurance review panel | Codex | ⏳ Proposed | `components/admin/InsuranceReviewPanel.tsx`, admin insurance API routes |
+| DCR-067 | Build admin insurance review panel | Codex | ✅ Complete | `components/admin/InsuranceReviewPanel.tsx`, admin insurance API routes |
 | DCR-068 | Implement coverage decision engine | Codex | ✅ Complete | `lib/insurance/evaluateCoverage.ts`, `lib/insurance/rules.ts`, `lib/services/coverageDecisionService.ts` |
-| DCR-069 | Add embedded insurance provider adapter interface | Codex | ⏳ Proposed | `lib/insurance/providers/` |
-| DCR-070 | Implement first provider integration | Codex | ⏳ Proposed | First live provider adapter |
-| DCR-071 | Build claims evidence package generator | Codex | ⏳ Proposed | `lib/services/claimsEvidenceService.ts`, admin endpoint |
-| DCR-072 | Add channel-aware booking compliance rules | Codex | ⏳ Proposed | Channel compliance enforcement |
+| DCR-069 | Add embedded insurance provider adapter interface | Codex | ✅ Complete | `lib/insurance/providers/` |
+| DCR-070 | Implement first provider integration | Codex | ✅ Complete | `lib/insurance/providers/axle.ts`, provider-backed renter policy verification wiring |
+| DCR-071 | Build claims evidence package generator | Codex | ✅ Complete | `lib/services/claimsEvidenceService.ts`, admin endpoint |
+| DCR-072 | Add channel-aware booking compliance rules | Codex | ✅ Complete | `lib/services/channelComplianceService.ts`, booking enforcement, admin channel metadata |
 
 ---
 
