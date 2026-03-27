@@ -5,12 +5,16 @@ import type { AnalyticsEvent, AnalyticsEventName, CreateAnalyticsEventInput } fr
 
 export async function logAnalyticsEvent(input: CreateAnalyticsEventInput): Promise<void> {
   try {
-    const { metadata, ...rest } = input;
-    await addDocument("analytics_events", {
-      ...rest,
-      ...(metadata !== undefined ? { metadata: Object.fromEntries(Object.entries(metadata).filter(([, v]) => v !== undefined)) } : {}),
-      createdAt: new Date(),
-    });
+    const doc: Record<string, unknown> = { createdAt: new Date() };
+    for (const [key, value] of Object.entries(input)) {
+      if (value === undefined) continue;
+      if (key === "metadata" && typeof value === "object" && value !== null) {
+        doc[key] = Object.fromEntries(Object.entries(value as Record<string, unknown>).filter(([, v]) => v !== undefined));
+      } else {
+        doc[key] = value;
+      }
+    }
+    await addDocument("analytics_events", doc);
   } catch (error) {
     if (error instanceof FirebaseConfigError) {
       return;
