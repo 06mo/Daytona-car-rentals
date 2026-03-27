@@ -1,12 +1,12 @@
 "use client";
 
 import { GoogleAuthProvider, signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { getClientServices } from "@/lib/firebase/client";
+
 
 function getErrorMessage(err: unknown): string {
   const code = (err as { code?: string })?.code;
@@ -30,7 +30,6 @@ function setSessionCookie(token: string) {
 }
 
 export function LoginForm({ returnUrl }: { returnUrl?: string }) {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +37,7 @@ export function LoginForm({ returnUrl }: { returnUrl?: string }) {
 
   const onSuccess = (token: string) => {
     setSessionCookie(token);
-    router.push(returnUrl ?? "/dashboard");
+    window.location.href = returnUrl ?? "/dashboard";
   };
 
   const handleEmail = async (e: React.FormEvent) => {
