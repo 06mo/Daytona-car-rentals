@@ -25,7 +25,9 @@ export function serializeFirestoreData<T>(value: T): T {
 
   if (isObject(value)) {
     return Object.fromEntries(
-      Object.entries(value).map(([key, entry]) => [key, serializeFirestoreData(entry)]),
+      Object.entries(value)
+        .filter(([, entry]) => entry !== undefined)
+        .map(([key, entry]) => [key, serializeFirestoreData(entry)]),
     ) as T;
   }
 
