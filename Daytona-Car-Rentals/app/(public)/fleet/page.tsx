@@ -4,6 +4,8 @@ import { Suspense } from "react";
 import { FleetCatalog } from "@/components/fleet/FleetCatalog";
 import { listVehicles } from "@/lib/services/vehicleService";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Rental Fleet — Daytona Car Rentals",
   description:

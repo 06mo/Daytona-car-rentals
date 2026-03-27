@@ -6,6 +6,8 @@ import type { FAQItem } from "@/components/landing/LandingFAQ";
 import { buildFaqSchema, createLandingMetadata, localBusinessSchema } from "@/lib/data/localBusinessSchema";
 import { listVehicles } from "@/lib/services/vehicleService";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = createLandingMetadata(
   "spring-break",
   "Spring Break Car Rental Daytona Beach | Groups Welcome",
