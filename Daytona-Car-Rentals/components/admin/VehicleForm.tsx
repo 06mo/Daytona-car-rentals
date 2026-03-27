@@ -23,7 +23,16 @@ const vehicleFormSchema = z.object({
   seats: z.coerce.number().int().min(1, "Seats must be at least 1."),
   transmission: z.enum(["automatic", "manual"]),
   mileagePolicyMode: z.enum(["unlimited", "limited"]),
-  mileagePolicyValue: z.coerce.number().int().min(1).optional(),
+  mileagePolicyValue: z.preprocess(
+    (value) => {
+      if (value === "" || value === null || value === undefined) {
+        return undefined;
+      }
+
+      return value;
+    },
+    z.coerce.number().int().min(1, "Mileage limit must be at least 1.").optional(),
+  ),
   location: z.string().trim().min(1, "Location is required."),
   description: z.string().trim().min(20, "Description should be at least 20 characters."),
   featuresText: z.string().trim().min(1, "Add at least one feature."),
@@ -78,6 +87,7 @@ export function VehicleForm({ vehicle }: { vehicle?: Vehicle | null }) {
   } = useForm<VehicleFormInput, unknown, VehicleFormValues>({
     resolver: zodResolver(vehicleFormSchema),
     defaultValues: toFormValues(vehicle ?? undefined),
+    shouldUnregister: true,
   });
 
   const mileagePolicyMode = watch("mileagePolicyMode");
