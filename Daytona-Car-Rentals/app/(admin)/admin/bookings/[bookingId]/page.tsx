@@ -5,11 +5,13 @@ import { AdjustmentPanel } from "@/components/admin/AdjustmentPanel";
 import { ProtectionPackageBadge } from "@/components/booking/ProtectionPackageBadge";
 import { BookingActionsPanel } from "@/components/admin/BookingActionsPanel";
 import { BookingStatusBadge } from "@/components/admin/BookingStatusBadge";
+import { InsuranceReviewPanel } from "@/components/admin/InsuranceReviewPanel";
 import { getProtectionPackageDefinition } from "@/lib/protection/config";
 import { computeRemainingBalance, listAdjustments } from "@/lib/services/adjustmentService";
 import { getChecklist } from "@/lib/services/checklistService";
 import { getBookingTimeline, listAdminUsers, listAdminVehicles, listUserDocumentsForAdmin } from "@/lib/services/adminService";
 import { getBookingById } from "@/lib/services/bookingService";
+import { summarizeInsuranceVerificationForBooking } from "@/lib/services/insuranceVerificationService";
 import { listPartners } from "@/lib/services/partnerService";
 import { formatCurrency } from "@/lib/utils";
 
@@ -25,7 +27,7 @@ export default async function AdminBookingDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  const [users, vehicles, partners, documents, pickupChecklist, dropoffChecklist, adjustments] = await Promise.all([
+  const [users, vehicles, partners, documents, pickupChecklist, dropoffChecklist, adjustments, insuranceSummary] = await Promise.all([
     listAdminUsers(),
     listAdminVehicles(),
     listPartners(),
@@ -33,6 +35,7 @@ export default async function AdminBookingDetailPage({ params }: PageProps) {
     getChecklist(booking.id, "pickup"),
     getChecklist(booking.id, "dropoff"),
     listAdjustments(booking.id),
+    summarizeInsuranceVerificationForBooking(booking.id).catch(() => null),
   ]);
   const customer = users.find((user) => user.id === booking.userId) ?? null;
   const vehicle = vehicles.find((item) => item.id === booking.vehicleId) ?? null;
@@ -158,16 +161,20 @@ export default async function AdminBookingDetailPage({ params }: PageProps) {
               <p>{protectionPackage.liabilityLabel}</p>
               <p>Protection total: {formatCurrency(booking.pricing.protectionAmount / 100)}</p>
               <p>Deposit at booking: {formatCurrency(booking.pricing.depositAmount / 100)}</p>
-              <p>Coverage decision: {booking.coverageDecisionStatus ?? "not evaluated"}</p>
-              <p>Coverage source: {booking.coverageSource ?? "none"}</p>
-              <p>Insurance verification: {booking.insuranceVerificationStatus ?? "unsubmitted"}</p>
-              {booking.insuranceBlockingReasons?.length ? (
-                <p>Blocking reasons: {booking.insuranceBlockingReasons.join(", ")}</p>
-              ) : null}
               {protectionPackageId === "basic" ? (
                 <p>Insurance on file: {insuranceDocument ? insuranceDocument.status : "missing"}</p>
               ) : (
                 <p>Insurance on file: optional</p>
+              )}
+            </div>
+          </div>
+          <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-slate-900">Insurance Verification</h2>
+            <div className="mt-4">
+              {insuranceSummary ? (
+                <InsuranceReviewPanel bookingId={booking.id} summary={insuranceSummary} />
+              ) : (
+                <p className="text-sm text-slate-500">No verification data available.</p>
               )}
             </div>
           </div>

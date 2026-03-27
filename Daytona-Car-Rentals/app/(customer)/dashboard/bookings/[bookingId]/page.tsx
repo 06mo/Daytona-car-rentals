@@ -10,6 +10,7 @@ import { computeRemainingBalance, listCustomerVisibleAdjustments } from "@/lib/s
 import { getChecklist } from "@/lib/services/checklistService";
 import { getBookingTimeline } from "@/lib/services/adminService";
 import { getBookingById } from "@/lib/services/bookingService";
+import { summarizeInsuranceVerificationForBooking } from "@/lib/services/insuranceVerificationService";
 import { getVehicleById } from "@/lib/services/vehicleService";
 import { formatCurrency } from "@/lib/utils";
 
@@ -31,11 +32,12 @@ export default async function CustomerBookingDetailPage({ params }: PageProps) {
     redirect("/dashboard/bookings");
   }
 
-  const [vehicle, pickupChecklist, dropoffChecklist, adjustments] = await Promise.all([
+  const [vehicle, pickupChecklist, dropoffChecklist, adjustments, insuranceSummary] = await Promise.all([
     getVehicleById(booking.vehicleId),
     getChecklist(booking.id, "pickup"),
     getChecklist(booking.id, "dropoff"),
     listCustomerVisibleAdjustments(booking.id),
+    summarizeInsuranceVerificationForBooking(booking.id).catch(() => null),
   ]);
   const timeline = getBookingTimeline(booking);
   const protectionPackageId = booking.protectionPackage ?? "standard";
@@ -118,11 +120,44 @@ export default async function CustomerBookingDetailPage({ params }: PageProps) {
               <p>{protectionPackage.name}</p>
               <p>{protectionPackage.liabilityLabel}</p>
               <p>Protection total: {formatCurrency(booking.pricing.protectionAmount / 100)}</p>
-              <p>Coverage decision: {booking.coverageDecisionStatus ?? "not evaluated"}</p>
-              <p>Coverage source: {booking.coverageSource ?? "none"}</p>
-              <p>Insurance status: {booking.insuranceVerificationStatus ?? "unsubmitted"}</p>
             </div>
           </div>
+          {insuranceSummary ? (
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="text-lg font-semibold text-slate-900">Insurance Verification</h2>
+              <div className="mt-4 grid gap-2 text-sm text-slate-600">
+                <div className="flex items-center justify-between">
+                  <span>Status</span>
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                      insuranceSummary.status === "verified"
+                        ? "bg-emerald-100 text-emerald-700"
+                        : insuranceSummary.status === "rejected"
+                          ? "bg-red-100 text-red-700"
+                          : insuranceSummary.status === "pending"
+                            ? "bg-amber-100 text-amber-700"
+                            : "bg-slate-100 text-slate-600"
+                    }`}
+                  >
+                    {insuranceSummary.status}
+                  </span>
+                </div>
+                {insuranceSummary.coverageSource && insuranceSummary.coverageSource !== "none" ? (
+                  <p>Coverage via: {insuranceSummary.coverageSource.replaceAll("_", " ")}</p>
+                ) : null}
+                {insuranceSummary.carrierName ? <p>Carrier: {insuranceSummary.carrierName}</p> : null}
+                {insuranceSummary.effectiveDate ? (
+                  <p>Policy effective: {insuranceSummary.effectiveDate.toLocaleDateString()}</p>
+                ) : null}
+                {insuranceSummary.expirationDate ? (
+                  <p>Policy expires: {insuranceSummary.expirationDate.toLocaleDateString()}</p>
+                ) : null}
+                {insuranceSummary.resolvedAt ? (
+                  <p>Verified: {insuranceSummary.resolvedAt.toLocaleDateString()}</p>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
 
           <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-slate-900">Pricing Summary</h2>
