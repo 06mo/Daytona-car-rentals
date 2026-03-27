@@ -501,3 +501,715 @@ tasks:
   status: complete
   objective: Ensure booking integrity, Stripe metadata validation, and document ownership remain secure under passwordless auth.
   deliverable: ai/DCR-062-magic-link-auth-integrity.md
+
+- id: DCR-063
+  title: Design insurance control plane
+  owner: Claude
+  status: complete
+  depends_on:
+      - DCR-050
+      - DCR-062
+  deliverable: ai/DCR-063-insurance-control-plane.md
+  prompt: |
+      You are the principal systems architect for Daytona Car Rentals.
+
+      Context:
+      - Existing stack: Next.js 15, Firebase Admin/Client, Firestore, Firebase Storage, Stripe, Tailwind CSS, TypeScript.
+      - Existing product already includes: booking flow, magic-link auth, guest booking recovery, admin dashboard, protection packages, risk scoring, checklist workflows, booking adjustments, audit logging, analytics, notifications.
+      - Current problem: payment and booking confirmation are too closely coupled, while insurance eligibility and coverage source need to become a server-authoritative control layer.
+      - Existing protection packages:
+        - basic: renter must have acceptable own insurance
+        - standard: intended to support Daytona-managed protection / future embedded coverage
+        - premium: intended to support stronger protection with tighter risk controls
+      - ABI alignment already documented in DCR-050, but Daytona now needs an internal insurance control plane that can support direct, platform, and partner bookings.
+
+      Produce a repo-ready architecture spec at:
+      ai/DCR-063-insurance-control-plane.md
+
+      The spec must define:
+      1. Domain concepts:
+         - insurance verification
+         - coverage decision
+         - coverage source
+         - rental channel
+         - provider adapter
+         - manual review
+         - override
+      2. Canonical enums:
+         - RentalChannel = direct | platform | partner
+         - InsuranceVerificationStatus = unsubmitted | pending | verified | rejected | expired | unverifiable
+         - CoverageDecisionStatus = approved | manual_review | rejected
+         - CoverageSource = renter_policy | embedded_policy | platform_policy | partner_policy | none
+      3. Booking lifecycle changes:
+         - separate payment success from booking confirmation
+         - include intermediate states such as payment_authorized, insurance_pending, insurance_manual_review, insurance_cleared
+      4. Service boundaries:
+         - lib/insurance/
+         - lib/services/insuranceVerificationService.ts
+         - lib/services/coverageDecisionService.ts
+         - lib/services/claimsEvidenceService.ts
+      5. Channel-aware coverage logic for:
+         - direct bookings
+         - approved platform bookings
+         - partner bookings
+      6. Admin override workflow:
+         - who can override
+         - required reason
+         - audit requirements
+         - effect on booking state
+      7. Failure paths:
+         - payment succeeded but insurance failed
+         - provider unavailable
+         - customer uploaded invalid insurance
+         - booking times out waiting for clearance
+      8. Clear acceptance criteria for downstream implementation tasks DCR-064 to DCR-072
+
+      Output requirements:
+      - Write in the same style as the existing Daytona architecture/task docs.
+      - Be implementation-oriented, not theoretical.
+      - Include recommended folder structure.
+      - Include explicit state transition table.
+      - Include “non-goals” to prevent scope creep.
+      - Do not write code yet; this is a design/spec task only.
+
+- id: DCR-064
+  title: Implement insurance domain types and Firestore schema
+  owner: Codex
+  status: Proposed
+  depends_on:
+      - DCR-063
+  deliverable: types/insurance.ts, Firestore schema/rules/index updates
+  prompt: |
+      Implement DCR-064 for Daytona Car Rentals.
+
+      Read first:
+      - ai/DCR-063-insurance-control-plane.md
+      - ai/DCR-050-abi-coverage-alignment.md
+      - existing types in types/
+      - existing Firestore patterns, firestore.rules, firestore.indexes.json, lib/firebase/, lib/services/
+
+      Goal:
+      Add the insurance domain model and Firestore schema needed for insurance verification, coverage decisions, and policy event tracking.
+
+      Required deliverables:
+      1. Create:
+         - types/insurance.ts
+      2. Export it from:
+         - types/index.ts
+      3. Add Firestore-backed schema support for:
+         - insurance_verifications
+         - coverage_decisions
+         - policy_events
+         - claims_evidence (top-level collection or equivalent justified structure)
+      4. Extend booking/domain types and service models with insurance summary fields.
+
+      Required enums/types:
+      - RentalChannel = "direct" | "platform" | "partner"
+      - InsuranceVerificationStatus = "unsubmitted" | "pending" | "verified" | "rejected" | "expired" | "unverifiable"
+      - CoverageDecisionStatus = "approved" | "manual_review" | "rejected"
+      - CoverageSource = "renter_policy" | "embedded_policy" | "platform_policy" | "partner_policy" | "none"
+
+      Required interfaces:
+      - InsuranceVerification
+      - CoverageDecision
+      - PolicyEvent
+      - ClaimsEvidencePackage (or stored equivalent metadata type)
+      - booking summary extensions as needed
+
+      Booking document additions should support:
+      - rentalChannel
+      - coverageDecisionStatus
+      - coverageSource
+      - insuranceVerificationStatus
+      - insuranceClearedAt
+      - insuranceReviewedAt
+      - insuranceOverrideApplied
+      - insuranceBlockingReasons
+      - paymentAuthorizedAt
+      - platformTripId
+      - partnerId
+
+      Security/rules requirements:
+      - No client-authoritative writes to insurance_verifications or coverage_decisions
+      - Admin read access where appropriate
+      - Customer access should stay limited to their own booking summaries via controlled APIs, not broad direct writes
+      - Preserve existing security posture
+
+      Implementation constraints:
+      - Keep backward compatibility with current codebase
+      - Do not break existing booking/customer/admin pages
+      - Follow current naming/style conventions
+      - Update firestore.rules and firestore.indexes.json only as needed
+      - Add minimal helper types/utilities only where justified
+
+      Acceptance criteria:
+      - TypeScript compiles cleanly
+      - New types are barrel-exported
+      - Firestore rules remain coherent and least-privilege
+      - Existing booking flow still compiles
+      - No client-side module becomes the source of truth for insurance state
+
+      Return:
+      - a concise summary of changed files
+      - any migration assumptions
+      - any indexes added
+
+- id: DCR-065
+  title: Implement renter policy verification workflow
+  owner: Codex
+  status: Proposed
+  depends_on:
+      - DCR-064
+      - DCR-066
+  deliverable: lib/services/insuranceVerificationService.ts, app/api/insurance/verify-renter-policy/route.ts
+  prompt: |
+      Implement DCR-065 for Daytona Car Rentals.
+
+      Read first:
+      - ai/DCR-063-insurance-control-plane.md
+      - types/insurance.ts
+      - existing document workflow:
+        - lib/services/documentService.ts
+        - components/documents/
+        - app/api/documents/
+        - app/api/me/verification/
+      - existing auth/rate-limit/audit patterns
+
+      Goal:
+      Create a normalized renter insurance verification workflow that converts uploaded policy evidence and/or insurer verification results into a single internal insurance verification record.
+
+      Required deliverables:
+      1. Create:
+         - lib/services/insuranceVerificationService.ts
+         - lib/insurance/normalize.ts
+      2. Add:
+         - app/api/insurance/verify-renter-policy/route.ts
+      3. Add any small supporting types/helpers needed to normalize decisions.
+      4. Reuse existing audit logging and monitoring patterns where appropriate.
+
+      Required workflow behavior:
+      - Customer uploads insurance document or otherwise initiates verification
+      - Server creates/updates an insurance_verifications record with pending status
+      - Verification result is normalized into one of:
+        - verified
+        - rejected
+        - unverifiable
+        - expired
+      - Result stores machine-readable normalized reasons
+
+      Minimum normalized reason set:
+      - policy_not_active
+      - name_mismatch
+      - liability_limits_too_low
+      - rental_use_excluded
+      - peer_to_peer_excluded
+      - commercial_use_excluded
+      - document_unreadable
+      - missing_required_fields
+      - manual_review_required
+
+      Required service APIs (or equivalent clean design):
+      - createInsuranceVerificationRequest(...)
+      - finalizeInsuranceVerification(...)
+      - getLatestInsuranceVerificationForBooking(...)
+      - summarizeInsuranceVerificationForBooking(...)
+
+      API route requirements:
+      - auth required
+      - customer must own booking unless admin
+      - safe validation for bookingId / vehicleId linkage
+      - returns a normalized insurance verification summary, not raw sensitive internals
+      - rate limited
+      - auditable
+
+      Important constraints:
+      - Do not let generic document upload alone imply verified insurance
+      - Do not expose raw provider payloads to the client
+      - Rejected/expired verification must be distinguishable from merely missing
+      - Keep provider-specific logic abstractable for DCR-069/DCR-070
+
+      Nice-to-have:
+      - if no live provider yet, implement a clean manual-review-first path that still creates normalized records
+
+      Acceptance criteria:
+      - New workflow compiles and integrates with current booking/auth patterns
+      - Verification state is stored independently from generic documents
+      - Machine-readable reasons are persisted
+      - Future provider integration can plug in without rewriting route contracts
+
+      Return:
+      - changed files
+      - route contract
+      - any follow-up hooks needed for UI wiring
+
+- id: DCR-066
+  title: Add booking status split payment authorized vs insurance cleared
+  owner: Codex
+  status: Proposed
+  depends_on:
+      - DCR-063
+      - DCR-064
+  deliverable: booking flow + Stripe handling updates
+  prompt: |
+      Implement DCR-066 for Daytona Car Rentals.
+
+      Read first:
+      - ai/DCR-063-insurance-control-plane.md
+      - existing booking state logic:
+        - lib/services/bookingService.ts
+        - app/api/bookings/create/route.ts
+        - app/api/stripe/create-payment-intent/route.ts
+        - lib/stripe/server.ts
+        - lib/stripe/webhooks.ts
+        - booking/customer/admin detail pages and status badges
+
+      Goal:
+      Separate payment success from final booking confirmation by introducing a proper post-payment insurance gate.
+
+      Required behavior:
+      1. Payment success or authorization must not directly imply confirmed booking
+      2. Booking flow must support these intermediate states, at minimum:
+         - payment_authorized
+         - insurance_pending
+         - insurance_manual_review
+         - insurance_cleared
+      3. confirmed should happen only after coverage is actually cleared
+      4. booking/customer/admin views must distinguish:
+         - payment received / authorized
+         - insurance still pending
+         - insurance manual review
+         - insurance cleared / confirmed
+
+      Required code changes:
+      - update booking status model and transition guards
+      - update Stripe webhook handling so successful payment does NOT auto-confirm booking
+      - store paymentAuthorizedAt when appropriate
+      - ensure booking create / payment intent flow remains server-authoritative
+      - do not break existing refund/cancel logic
+
+      Required UX behavior:
+      - customer should see a clear pending-insurance message after payment where applicable
+      - admin should see exactly why a paid booking is not yet confirmed
+
+      Constraints:
+      - preserve backward compatibility where practical
+      - do not silently reinterpret historical bookings in a dangerous way
+      - keep notification semantics correct: payment received is not the same as booking confirmed
+      - reuse existing state machine patterns
+
+      Acceptance criteria:
+      - paid bookings are not automatically confirmed
+      - booking states and transitions compile cleanly
+      - admin/customer booking detail pages reflect new statuses coherently
+      - no route assumes payment success equals insurance clearance
+
+      Return:
+      - changed files
+      - status migration assumptions
+      - any follow-up UI text changes needed
+
+- id: DCR-067
+  title: Build admin insurance review panel
+  owner: Codex
+  status: Proposed
+  depends_on:
+      - DCR-065
+      - DCR-068
+  deliverable: components/admin/InsuranceReviewPanel.tsx and admin insurance APIs
+  prompt: |
+      Implement DCR-067 for Daytona Car Rentals.
+
+      Read first:
+      - ai/DCR-063-insurance-control-plane.md
+      - types/insurance.ts
+      - current admin booking detail page
+      - current admin action, audit, auth, and modal patterns
+      - any services created in DCR-065 and DCR-068
+
+      Goal:
+      Add a first-class admin insurance review panel embedded into the booking detail view.
+
+      Required deliverables:
+      1. Create:
+         - components/admin/InsuranceReviewPanel.tsx
+      2. Add API routes:
+         - GET /api/admin/bookings/[bookingId]/insurance
+         - POST /api/admin/bookings/[bookingId]/insurance/override
+      3. Wire panel into:
+         - app/(admin)/admin/bookings/[bookingId]/page.tsx
+         or the equivalent current booking detail surface
+
+      Panel must show:
+      - booking summary: booking ID, renter, vehicle, dates
+      - rental channel
+      - protection package
+      - risk level
+      - verification status
+      - provider used
+      - carrier name
+      - effective dates
+      - named insured match
+      - comp/collision present
+      - normalized reasons
+      - coverage decision status
+      - coverage source
+      - blocking reasons / approval reasons
+
+      Actions to support:
+      - mark verified
+      - reject
+      - send to manual review
+      - request re-upload / re-review hook if appropriate
+      - apply admin override
+
+      Override requirements:
+      - admin only
+      - typed reason required
+      - audit log event required
+      - booking note or equivalent operational trace required
+      - no silent override
+
+      Constraints:
+      - follow existing admin UI style and interaction patterns
+      - avoid introducing a completely separate insurance dashboard unless necessary
+      - use server-authoritative reads/writes
+      - keep customer-facing sensitive data exposure minimal
+
+      Acceptance criteria:
+      - admin can understand exactly why a booking is blocked
+      - override cannot occur without a reason
+      - every action is auditable
+      - panel integrates cleanly into existing booking detail page
+
+      Return:
+      - changed files
+      - route contracts
+      - any deferred limitations
+
+- id: DCR-068
+  title: Implement coverage decision engine
+  owner: Codex
+  status: Proposed
+  depends_on:
+      - DCR-064
+      - DCR-065
+  deliverable: lib/insurance/evaluateCoverage.ts, lib/services/coverageDecisionService.ts
+  prompt: |
+      Implement DCR-068 for Daytona Car Rentals.
+
+      Read first:
+      - ai/DCR-063-insurance-control-plane.md
+      - ai/DCR-050-abi-coverage-alignment.md
+      - types/insurance.ts
+      - current protection package logic
+      - current risk scoring logic
+      - booking service/state machine
+
+      Goal:
+      Centralize all insurance/coverage approval logic into one server-authoritative coverage decision engine.
+
+      Required deliverables:
+      1. Create:
+         - lib/insurance/rules.ts
+         - lib/insurance/evaluateCoverage.ts
+         - lib/services/coverageDecisionService.ts
+      2. Ensure booking confirmation paths can consume this engine
+      3. Persist a normalized coverage decision record after evaluation
+
+      Required core function (or equivalent):
+      evaluateCoverageDecision({
+        bookingId,
+        userId,
+        vehicleId,
+        rentalChannel,
+        protectionPackage,
+        startDate,
+        endDate,
+        riskLevel
+      })
+
+      Required rule matrix:
+      1. Direct + Basic
+         - approve only if renter insurance is verified and no blocking reasons remain
+      2. Direct + Standard
+         - approve if renter insurance verified OR embedded coverage later binds successfully
+         - until provider integration exists, support a clean not-yet-bound/manual-review path
+      3. Direct + Premium
+         - same general logic as standard but may be unavailable for high-risk bookings
+      4. Platform
+         - require approved platform metadata / trip linkage where appropriate
+         - coverage source should resolve to platform_policy when valid
+      5. Partner
+         - require partner association and declared coverage responsibility
+         - resolve to partner_policy or reject/manual review
+
+      Output requirements:
+      - always return one status
+      - always return one coverage source
+      - always return machine-readable reasons
+      - no ambiguous null-state decisions
+
+      Constraints:
+      - keep business logic unit-testable and mostly pure where possible
+      - use normalized insurance verification inputs only
+      - do not let route handlers implement ad hoc rule branches outside this engine
+      - manual_review vs rejected should be consistent and explainable
+
+      Acceptance criteria:
+      - all final booking confirmation logic can rely on this engine
+      - decision record persisted cleanly
+      - direct/platform/partner logic is separated
+      - engine compiles without leaking provider-specific response shapes
+
+      Return:
+      - changed files
+      - decision matrix summary
+      - any assumptions for provider-not-yet-integrated paths
+
+- id: DCR-069
+  title: Add embedded insurance provider adapter interface
+  owner: Codex
+  status: Proposed
+  depends_on:
+      - DCR-068
+  deliverable: provider abstraction layer under lib/insurance/providers/
+  prompt: |
+      Implement DCR-069 for Daytona Car Rentals.
+
+      Read first:
+      - ai/DCR-063-insurance-control-plane.md
+      - types/insurance.ts
+      - lib/insurance/evaluateCoverage.ts
+      - lib/services/insuranceVerificationService.ts
+      - lib/services/coverageDecisionService.ts
+
+      Goal:
+      Create a provider adapter abstraction so Daytona can integrate external insurance/verification vendors without rewriting business logic.
+
+      Required deliverables:
+      1. Create:
+         - lib/insurance/providers/types.ts
+         - lib/insurance/providers/embedded.ts
+      2. Add at least one mock/stub implementation for local/dev/testing
+      3. Keep provider-specific response shapes isolated from business logic
+
+      Required provider contract areas:
+      - quote retrieval for embedded coverage
+      - policy bind for embedded coverage
+      - normalized result contract
+      - raw payload retention only for audit/debug, not business logic
+
+      Required design rules:
+      - booking/business logic must consume normalized provider outputs only
+      - provider failures must degrade to manual_review or failed policy events, never silent pass
+      - adapter should be pluggable by env/config
+      - no vendor-specific branching in route handlers
+
+      Suggested interface methods:
+      - getQuote(...)
+      - bindPolicy(...)
+
+      Constraints:
+      - keep it lightweight and future-safe
+      - do not overbuild a giant plugin framework
+      - compile cleanly even before a real provider is connected
+      - create mock provider behavior suitable for local testing
+
+      Acceptance criteria:
+      - provider abstraction compiles
+      - mock provider can be used in dev/test
+      - existing coverage decision logic remains vendor-agnostic
+
+      Return:
+      - changed files
+      - adapter contract summary
+      - how mock provider is selected
+
+- id: DCR-070
+  title: Implement first provider integration
+  owner: Codex
+  status: Proposed
+  depends_on:
+      - DCR-069
+      - DCR-065
+  deliverable: first live provider adapter and service wiring
+  prompt: |
+      Implement DCR-070 for Daytona Car Rentals.
+
+      Read first:
+      - ai/DCR-063-insurance-control-plane.md
+      - provider abstraction created in DCR-069
+      - insurance verification workflow from DCR-065
+      - coverage decision engine from DCR-068
+
+      Goal:
+      Implement the first real provider integration through the adapter pattern.
+
+      Recommended direction:
+      - prioritize renter policy verification provider integration first
+      - if live provider credentials are not yet available, structure the code so only env/config is missing and the adapter is production-ready
+
+      Required deliverables:
+      1. Create provider module, for example:
+         - lib/insurance/providers/axle.ts
+         or an equivalently named first provider adapter
+      2. Wire provider into:
+         - insuranceVerificationService
+         and/or the relevant verification path
+      3. Normalize provider outputs into Daytona internal verification records
+      4. Add env-driven configuration and safe failure handling
+
+      Safeguards required:
+      - provider failure => manual_review or explicit failed state, never accidental approval
+      - timeout-safe behavior
+      - retries controlled, not infinite
+      - raw sensitive payloads not exposed to client responses
+      - audit log stores attempt/result status, not unnecessarily sensitive data
+
+      Constraints:
+      - no hard dependency on provider-specific shapes outside adapter
+      - no silent fallback to “verified”
+      - preserve local/dev usability if provider env vars missing
+
+      Acceptance criteria:
+      - real provider integration path exists cleanly behind adapter
+      - normalized verification results are stored
+      - provider downtime does not approve risky bookings
+      - codebase remains vendor-agnostic outside adapter boundary
+
+      Return:
+      - changed files
+      - env vars expected
+      - graceful-degradation behavior when provider unavailable
+
+- id: DCR-071
+  title: Build claims evidence package generator
+  owner: Codex
+  status: Proposed
+  depends_on:
+      - DCR-064
+      - DCR-065
+      - DCR-068
+  deliverable: lib/services/claimsEvidenceService.ts and admin endpoint
+  prompt: |
+      Implement DCR-071 for Daytona Car Rentals.
+
+      Read first:
+      - ai/DCR-063-insurance-control-plane.md
+      - existing checklist, signatures, booking timeline, payment, adjustment, audit, and document systems
+      - any insurance services added in DCR-065 and DCR-068
+
+      Goal:
+      Create a server-side claims evidence package generator that assembles all relevant operational and insurance evidence for a booking.
+
+      Required deliverables:
+      1. Create:
+         - lib/services/claimsEvidenceService.ts
+      2. Add:
+         - GET /api/admin/bookings/[bookingId]/claims-evidence
+      3. Return a structured, reproducible read-only package
+
+      Evidence sources to include where available:
+      - booking snapshot
+      - renter/customer snapshot
+      - vehicle snapshot
+      - protection package summary
+      - insurance verification summary
+      - coverage decision summary
+      - pickup checklist
+      - dropoff checklist
+      - signatures
+      - checklist photos / media refs
+      - booking adjustments
+      - payment status/history summary
+      - timeline/status transitions
+      - audit events relevant to booking
+      - document verification context
+
+      Output shape:
+      - structured JSON package first
+      - media/storage refs included
+      - generatedAt timestamp
+      - no need for PDF generation in this task
+
+      Constraints:
+      - admin-only access
+      - read-only
+      - avoid broad customer personal data leakage beyond what is operationally necessary
+      - must not mutate booking state
+      - be resilient to missing subcomponents (e.g. missing dropoff checklist)
+
+      Acceptance criteria:
+      - admin can retrieve one consolidated evidence package per booking
+      - package includes both operational and insurance artifacts
+      - service compiles cleanly and is reproducible
+
+      Return:
+      - changed files
+      - package shape summary
+      - any intentionally omitted artifacts for v1
+
+- id: DCR-072
+  title: Add channel aware booking compliance rules
+  owner: Codex
+  status: Proposed
+  depends_on:
+      - DCR-068
+      - DCR-069
+  deliverable: channel compliance enforcement in booking/coverage flow
+  prompt: |
+      Implement DCR-072 for Daytona Car Rentals.
+
+      Read first:
+      - ai/DCR-063-insurance-control-plane.md
+      - types/insurance.ts
+      - coverage decision engine
+      - booking service/state machine
+      - partner/referral-related structures already present in the codebase
+
+      Goal:
+      Enforce distinct booking compliance requirements for direct, platform, and partner channels so Daytona can safely support multiple booking sources.
+
+      Required deliverables:
+      1. Add channel-aware rule enforcement in:
+         - lib/insurance/rules.ts
+         or
+         - lib/services/channelComplianceService.ts
+      2. Extend booking flow/service logic to respect channel-specific requirements
+      3. Surface channel metadata clearly in admin booking detail
+
+      Required channel rules:
+      1. Direct
+         - requires approved coverage decision
+         - no unresolved insurance blockers
+      2. Platform
+         - requires approved platform designation/metadata
+         - requires external trip ID or equivalent linkage where appropriate
+         - should resolve toward platform_policy path
+      3. Partner
+         - requires partner association
+         - requires declared coverage responsibility / partner validity
+         - should resolve toward partner_policy path when appropriate
+
+      Admin visibility must show:
+      - rental channel
+      - external trip ID if present
+      - partner ID or partner name if present
+      - coverage source
+      - insurance/coverage decision summary
+
+      Constraints:
+      - do not blur direct and platform logic together
+      - preserve backward compatibility for bookings that predate this feature
+      - keep final confirmation server-authoritative
+      - do not invent unsupported platform integrations; support metadata/rule readiness first
+
+      Acceptance criteria:
+      - bookings cannot be confirmed without channel-compliant metadata
+      - direct/platform/partner requirements are clearly separated
+      - admin can see why a channel-specific booking is blocked
+
+      Return:
+      - changed files
+      - rule summary by channel
+      - migration assumptions for existing bookings
