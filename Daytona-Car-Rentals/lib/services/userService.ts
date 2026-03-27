@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { AuditActorRole, Booking, UpsertUserProfileInput, UserProfile, VerificationStatus } from "@/types";
-import { getDocument, listDocuments, setDocument, updateDocument } from "@/lib/firebase/firestore";
+import { getDocument, listDocuments, setDocument } from "@/lib/firebase/firestore";
 import { logAuditEvent } from "@/lib/services/auditService";
 
 function getUserDocumentPath(userId: string) {
@@ -37,10 +37,11 @@ export async function updateUserVerificationStatus(
 ) {
   const existing = await getUserProfile(userId);
 
-  await updateDocument<UserProfile>(getUserDocumentPath(userId), {
-    verificationStatus,
-    updatedAt: new Date(),
-  });
+  await setDocument<UserProfile>(
+    getUserDocumentPath(userId),
+    { verificationStatus, updatedAt: new Date() },
+    { merge: true },
+  );
 
   const updatedUser = await getUserProfile(userId);
 
@@ -103,14 +104,18 @@ export async function syncRepeatCustomerProfile(userId: string) {
     return user;
   }
 
-  await updateDocument<UserProfile>(getUserDocumentPath(userId), {
-    completedBookingsCount,
-    repeatCustomer,
-    repeatCustomerSince,
-    fastTrackEligible,
-    loyaltyDiscountEligible,
-    updatedAt: new Date(),
-  });
+  await setDocument<UserProfile>(
+    getUserDocumentPath(userId),
+    {
+      completedBookingsCount,
+      repeatCustomer,
+      repeatCustomerSince,
+      fastTrackEligible,
+      loyaltyDiscountEligible,
+      updatedAt: new Date(),
+    },
+    { merge: true },
+  );
 
   return getUserProfile(userId);
 }
