@@ -1,7 +1,3 @@
-export const daytonaLocations = [
-  "Daytona Beach Airport",
-  "Downtown Daytona Beach",
-  "Daytona International Speedway",
-  "Ormond Beach",
-  "New Smyrna Beach",
-];
+import { defaultVehicleLocations } from "@/lib/data/vehicleOptions";
+
+export const daytonaLocations = defaultVehicleLocations;

@@ -4,11 +4,12 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { daytonaLocations } from "@/lib/data/locations";
 import { useBooking } from "@/components/providers/BookingProvider";
+import { useVehicleOptions } from "@/lib/hooks/useVehicleOptions";
 
 export function Step1Dates() {
   const { state, updateDates, updateLocation, setStep } = useBooking();
+  const { locations } = useVehicleOptions();
   const [startDate, setStartDate] = useState(state.startDate);
   const [endDate, setEndDate] = useState(state.endDate);
   const [pickupLocation, setPickupLocation] = useState(state.pickupLocation);
@@ -80,7 +81,7 @@ export function Step1Dates() {
           <span>Pick-up Location</span>
           <select className="h-11 rounded-2xl border border-slate-300 px-4" onChange={(e) => setPickupLocation(e.target.value)} value={pickupLocation}>
             <option value="">Select a location</option>
-            {daytonaLocations.map((location) => (
+            {locations.map((location) => (
               <option key={location} value={location}>{location}</option>
             ))}
           </select>
@@ -89,7 +90,7 @@ export function Step1Dates() {
           <span>Return Location</span>
           <select className="h-11 rounded-2xl border border-slate-300 px-4" onChange={(e) => setReturnLocation(e.target.value)} value={returnLocation}>
             <option value="">Select a location</option>
-            {daytonaLocations.map((location) => (
+            {locations.map((location) => (
               <option key={location} value={location}>{location}</option>
             ))}
           </select>

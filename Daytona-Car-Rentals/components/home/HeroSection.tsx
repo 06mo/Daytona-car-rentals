@@ -2,17 +2,24 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
+import { useVehicleOptions } from "@/lib/hooks/useVehicleOptions";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { daytonaLocations } from "@/lib/data/locations";
 
 export function HeroSection() {
   const router = useRouter();
-  const [location, setLocation] = useState(daytonaLocations[0]);
+  const { locations } = useVehicleOptions();
+  const [location, setLocation] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+
+  useEffect(() => {
+    if (!location && locations[0]) {
+      setLocation(locations[0]);
+    }
+  }, [location, locations]);
 
   function handleSearch() {
     const params = new URLSearchParams();
@@ -70,7 +77,7 @@ export function HeroSection() {
                 value={location}
               />
               <datalist id="daytona-locations">
-                {daytonaLocations.map((item) => (
+                {locations.map((item) => (
                   <option key={item} value={item} />
                 ))}
               </datalist>

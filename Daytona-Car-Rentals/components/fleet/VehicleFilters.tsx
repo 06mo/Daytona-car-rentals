@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
-import { daytonaLocations } from "@/lib/data/locations";
+import { useVehicleOptions } from "@/lib/hooks/useVehicleOptions";
 import { cn } from "@/lib/utils";
 import type { FleetFilters, TransmissionType, VehicleCategory } from "@/types";
 
@@ -39,6 +39,8 @@ function FilterPanel({
   filters: FleetFilters;
   onFiltersChange: (filters: FleetFilters) => void;
 }) {
+  const { locations } = useVehicleOptions();
+
   function toggleCategory(category: VehicleCategory) {
     const categories = filters.categories.includes(category)
       ? filters.categories.filter((item) => item !== category)
@@ -92,7 +94,7 @@ function FilterPanel({
           value={filters.location ?? ""}
         >
           <option value="">All locations</option>
-          {daytonaLocations.map((location) => (
+          {locations.map((location) => (
             <option key={location} value={location}>
               {location}
             </option>

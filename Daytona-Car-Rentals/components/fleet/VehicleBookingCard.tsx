@@ -6,7 +6,7 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { daytonaLocations } from "@/lib/data/locations";
+import { useVehicleOptions } from "@/lib/hooks/useVehicleOptions";
 import { formatCurrency } from "@/lib/utils";
 import { getDateRangeInDays } from "@/lib/utils/dateUtils";
 import type { Vehicle } from "@/types";
@@ -31,6 +31,7 @@ export function VehicleBookingCard({
   initialLocation,
 }: VehicleBookingCardProps) {
   const router = useRouter();
+  const { locations } = useVehicleOptions();
   const [startDate, setStartDate] = useState(initialStartDate ?? "");
   const [endDate, setEndDate] = useState(initialEndDate ?? "");
   const [location, setLocation] = useState(initialLocation ?? "");
@@ -102,7 +103,7 @@ export function VehicleBookingCard({
             value={location}
           >
             <option value="">Select a location</option>
-            {daytonaLocations.map((item) => (
+            {locations.map((item) => (
               <option key={item} value={item}>
                 {item}
               </option>

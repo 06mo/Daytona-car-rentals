@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Building2, CarFront, ClipboardList, LayoutDashboard, ShieldCheck, Users } from "lucide-react";
+import { Building2, CarFront, ClipboardList, LayoutDashboard, MapPinned, ShieldCheck, Users } from "lucide-react";
 import { usePathname } from "next/navigation";
 
 import { Badge } from "@/components/ui/Badge";
@@ -11,6 +11,7 @@ const items = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/bookings", label: "Bookings", icon: ClipboardList },
   { href: "/admin/fleet", label: "Fleet", icon: CarFront },
+  { href: "/admin/fleet/options", label: "Fleet Options", icon: MapPinned },
   { href: "/admin/customers", label: "Customers", icon: Users },
   { href: "/admin/verifications", label: "Verifications", icon: ShieldCheck },
   { href: "/admin/partners", label: "Partners", icon: Building2 },

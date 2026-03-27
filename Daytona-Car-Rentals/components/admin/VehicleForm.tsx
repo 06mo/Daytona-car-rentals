@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { uploadFileWithProgress } from "@/lib/firebase/client-storage";
 import { getClientServices } from "@/lib/firebase/client";
+import { useVehicleOptions } from "@/lib/hooks/useVehicleOptions";
 import type { Vehicle, VehicleCategory } from "@/types";
 
 const vehicleFormSchema = z.object({
@@ -35,7 +36,7 @@ const vehicleFormSchema = z.object({
   ),
   location: z.string().trim().min(1, "Location is required."),
   description: z.string().trim().min(20, "Description should be at least 20 characters."),
-  featuresText: z.string().trim().min(1, "Add at least one feature."),
+  featuresText: z.string().trim().default(""),
   available: z.boolean().default(true),
 }).superRefine((value, context) => {
   if (value.mileagePolicyMode === "limited" && !value.mileagePolicyValue) {
@@ -73,11 +74,18 @@ function toFormValues(vehicle?: Vehicle): VehicleFormValues {
 
 export function VehicleForm({ vehicle }: { vehicle?: Vehicle | null }) {
   const router = useRouter();
+  const { featurePresets, locations } = useVehicleOptions();
   const [draftVehicleId] = useState(() => vehicle?.id ?? `vehicle-${Date.now().toString(36)}`);
   const [imageUrls, setImageUrls] = useState<string[]>(vehicle?.images ?? []);
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedPresetFeatures, setSelectedPresetFeatures] = useState<string[]>(
+    vehicle?.features.filter((feature) => featurePresets.includes(feature)) ?? [],
+  );
+  const [customFeaturesText, setCustomFeaturesText] = useState(
+    vehicle?.features.filter((feature) => !featurePresets.includes(feature)).join(", ") ?? "",
+  );
 
   const {
     register,
@@ -92,6 +100,21 @@ export function VehicleForm({ vehicle }: { vehicle?: Vehicle | null }) {
 
   const mileagePolicyMode = watch("mileagePolicyMode");
   const uploadEntries = useMemo(() => Object.entries(uploadProgress), [uploadProgress]);
+
+  useEffect(() => {
+    if (!vehicle) {
+      return;
+    }
+
+    setSelectedPresetFeatures(vehicle.features.filter((feature) => featurePresets.includes(feature)));
+    setCustomFeaturesText(vehicle.features.filter((feature) => !featurePresets.includes(feature)).join(", "));
+  }, [featurePresets, vehicle]);
+
+  function togglePresetFeature(feature: string) {
+    setSelectedPresetFeatures((current) =>
+      current.includes(feature) ? current.filter((item) => item !== feature) : [...current, feature],
+    );
+  }
 
   async function handleImageUpload(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
@@ -152,10 +175,11 @@ export function VehicleForm({ vehicle }: { vehicle?: Vehicle | null }) {
         throw new Error("Sign in is required before saving a vehicle.");
       }
 
-      const features = values.featuresText
+      const customFeatures = customFeaturesText
         .split(",")
         .map((feature) => feature.trim())
         .filter(Boolean);
+      const features = Array.from(new Set([...selectedPresetFeatures, ...customFeatures]));
 
       if (features.length === 0) {
         throw new Error("Add at least one feature.");
@@ -250,7 +274,18 @@ export function VehicleForm({ vehicle }: { vehicle?: Vehicle | null }) {
           <div />
         )}
 
-        <Input className="md:col-span-3" error={errors.location?.message} label="Location" {...register("location")} />
+        <label className="flex flex-col gap-2 md:col-span-3">
+          <span className="text-sm font-medium text-slate-700">Location</span>
+          <select className="h-11 rounded-2xl border border-slate-300 bg-white px-4" {...register("location")}>
+            <option value="">Select a location</option>
+            {locations.map((location) => (
+              <option key={location} value={location}>
+                {location}
+              </option>
+            ))}
+          </select>
+          {errors.location ? <span className="text-sm text-red-600">{errors.location.message}</span> : null}
+        </label>
 
         <label className="flex flex-col gap-2 md:col-span-3">
           <span className="text-sm font-medium text-slate-700">Description</span>
@@ -262,11 +297,33 @@ export function VehicleForm({ vehicle }: { vehicle?: Vehicle | null }) {
         </label>
 
         <label className="flex flex-col gap-2 md:col-span-3">
-          <span className="text-sm font-medium text-slate-700">Features</span>
+          <span className="text-sm font-medium text-slate-700">Feature Presets</span>
+          <div className="flex flex-wrap gap-2">
+            {featurePresets.map((feature) => {
+              const selected = selectedPresetFeatures.includes(feature);
+
+              return (
+                <button
+                  key={feature}
+                  className={`rounded-full border px-3 py-2 text-sm font-medium ${selected ? "border-orange-500 bg-orange-50 text-orange-600" : "border-slate-300 text-slate-600"}`}
+                  onClick={() => togglePresetFeature(feature)}
+                  type="button"
+                >
+                  {feature}
+                </button>
+              );
+            })}
+          </div>
+          <span className="text-xs text-slate-500">Manage this list in Admin → Fleet Options.</span>
+        </label>
+
+        <label className="flex flex-col gap-2 md:col-span-3">
+          <span className="text-sm font-medium text-slate-700">Custom Features</span>
           <textarea
             className="min-h-24 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-200"
             placeholder="Bluetooth, Backup Camera, Apple CarPlay"
-            {...register("featuresText")}
+            onChange={(event) => setCustomFeaturesText(event.target.value)}
+            value={customFeaturesText}
           />
           {errors.featuresText ? <span className="text-sm text-red-600">{errors.featuresText.message}</span> : null}
         </label>

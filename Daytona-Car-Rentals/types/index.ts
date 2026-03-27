@@ -14,5 +14,6 @@ export * from "@/types/payment";
 export * from "@/types/partner";
 export * from "@/types/pricing";
 export * from "@/types/promo";
+export * from "@/types/settings";
 export * from "@/types/user";
 export * from "@/types/vehicle";
