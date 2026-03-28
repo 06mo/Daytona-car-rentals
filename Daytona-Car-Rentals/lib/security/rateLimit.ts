@@ -40,7 +40,7 @@ export const rateLimitPolicies = {
   documentUpload: { id: "document-upload", limit: 20, windowMs: 60 * 60 * 1000 },
   insuranceVerification: { id: "insurance-verification", limit: 10, windowMs: 60 * 60 * 1000 },
   magicLink: { id: "magic-link", limit: 3, windowMs: 10 * 60 * 1000 },
-  paymentIntentCreate: { id: "payment-intent-create", limit: 10, windowMs: 10 * 60 * 1000 },
+  paymentIntentCreate: { id: "payment-intent-create", limit: 50, windowMs: 10 * 60 * 1000 },
   profileUpdate: { id: "profile-update", limit: 15, windowMs: 60 * 60 * 1000 },
 } satisfies Record<string, RateLimitPolicy>;
 
@@ -49,6 +49,10 @@ export function enforceRateLimit(
   policy: RateLimitPolicy,
   subject?: string,
 ): NextResponse | null {
+  if (process.env.DISABLE_RATE_LIMIT === "true") {
+    return null;
+  }
+
   const result = checkRateLimit(policy, subject ?? getRequestFingerprint(request));
 
   if (result.allowed) {
