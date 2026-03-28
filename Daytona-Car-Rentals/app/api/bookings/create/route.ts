@@ -10,6 +10,7 @@ import { getPartnerByCode } from "@/lib/services/partnerService";
 import { computeBookingPricingWithRules } from "@/lib/services/pricingService";
 import { getProtectionPricing } from "@/lib/services/protectionService";
 import { applyPromoCodeToPricing, getPromoCodeByCode } from "@/lib/services/promoService";
+import { recordConsent } from "@/lib/services/rentalAgreementService";
 import { evaluateBookingRisk } from "@/lib/services/riskEngine";
 import { createBooking } from "@/lib/services/bookingService";
 import { evaluateCoverageDecisionForBooking } from "@/lib/services/coverageDecisionService";
@@ -29,6 +30,8 @@ type CreateBookingRequest = {
   extras?: BookingExtras;
   protectionPackage?: ProtectionPackageId;
   paymentIntentId?: string;
+  termsConsentedAt?: string;
+  termsVersion?: string;
   adminNotes?: string;
   promoCode?: string;
   referralCode?: string;
@@ -186,6 +189,10 @@ export async function POST(request: Request) {
     }
 
     const partner = body.referralCode ? await getPartnerByCode(body.referralCode) : null;
+    const consentedAt =
+      body.termsConsentedAt && !Number.isNaN(new Date(body.termsConsentedAt).getTime())
+        ? new Date(body.termsConsentedAt)
+        : null;
 
     const createdBooking = await createBooking(
       {
@@ -216,6 +223,30 @@ export async function POST(request: Request) {
     );
 
     let booking = createdBooking;
+
+    if (createdBooking) {
+      try {
+        await recordConsent(createdBooking.id, createdBooking.userId, {
+          consentedAt: consentedAt ?? new Date(),
+          actorId: user.userId,
+          actorRole: user.role,
+          consentIpHint: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || undefined,
+        });
+      } catch (agreementError) {
+        await reportMonitoringEvent({
+          source: "api.bookings.create",
+          message: "Rental agreement consent persistence failed after booking creation.",
+          severity: "error",
+          error: agreementError,
+          context: {
+            method: request.method,
+            path: "/api/bookings/create",
+            bookingId: createdBooking.id,
+            termsVersion: body.termsVersion,
+          },
+        });
+      }
+    }
 
     if (createdBooking) {
       try {

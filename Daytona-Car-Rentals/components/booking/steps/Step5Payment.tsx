@@ -78,6 +78,8 @@ function PaymentForm({ clientSecret, paymentIntentId }: { clientSecret: string; 
         returnLocation: state.returnLocation,
         extras: state.extras,
         protectionPackage: state.protectionPackage,
+        termsConsentedAt: state.termsConsentedAt,
+        termsVersion: state.termsVersion,
         promoCode: state.promoCode || undefined,
         referralCode,
       }),

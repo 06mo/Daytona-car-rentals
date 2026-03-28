@@ -1,4 +1,4 @@
-import { rentalTermsSections } from "@/lib/data/rentalTerms";
+import { rentalTermsSections } from "../../lib/data/rentalTerms";
 
 type RentalTermsContentProps = {
   compact?: boolean;

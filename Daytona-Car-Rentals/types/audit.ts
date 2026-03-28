@@ -3,6 +3,7 @@ export type AuditEntityType =
   | "document"
   | "insurance"
   | "payment"
+  | "rental_agreement"
   | "user"
   | "vehicle";
 
@@ -25,6 +26,10 @@ export type AuditAction =
   | "insurance.verification_requested"
   | "insurance.verification_resolved"
   | "insurance.override_applied"
+  | "rental_agreement.created"
+  | "rental_agreement.consented"
+  | "rental_agreement.signed"
+  | "rental_agreement.voided"
   | "payment.intent_created"
   | "payment.succeeded"
   | "payment.failed"

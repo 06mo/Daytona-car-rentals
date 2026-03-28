@@ -1213,3 +1213,101 @@ tasks:
       - changed files
       - rule summary by channel
       - migration assumptions for existing bookings
+
+# ---------- RENTAL AGREEMENT ----------
+- id: DCR-073
+  title: Design rental agreement system
+  owner: claude
+  status: complete
+  objective: Define a formal per-booking rental agreement — persisted consent record at checkout, customer-signed agreement at pickup, and admin-visible agreement audit trail.
+  deliverable: ai/DCR-073-rental-agreement.md
+
+- id: DCR-074
+  title: Implement rental agreement system
+  owner: codex
+  status: complete
+  depends_on:
+    - DCR-073
+  deliverable: RentalAgreement Firestore collection, consent record on booking creation, pickup signature wired to agreement, admin agreement view
+  prompt: |
+    Implement DCR-074 for Daytona Car Rentals.
+
+    Read first:
+    - ai/DCR-073-rental-agreement.md
+    - components/booking/steps/Step4Review.tsx (terms acceptance checkbox)
+    - lib/data/rentalTerms.ts (terms content)
+    - components/legal/RentalTermsContent.tsx
+    - components/admin/ChecklistForm.tsx (existing signature capture at pickup)
+    - types/checklist.ts (VehicleChecklist with adminSignature/customerSignature)
+    - lib/services/checklistService.ts
+    - lib/services/bookingService.ts
+    - app/api/bookings/create/route.ts
+    - existing audit logging and Firestore patterns
+
+    Goal:
+    Create a formal rental agreement system that closes the gap between
+    "customer ticked a checkbox" and "a legally traceable signed agreement
+    exists per booking."
+
+    Required deliverables:
+    1. New type:
+       - types/rentalAgreement.ts (RentalAgreement, RentalAgreementStatus)
+       - export from types/index.ts
+    2. New service:
+       - lib/services/rentalAgreementService.ts
+    3. API routes:
+       - POST /api/bookings/[bookingId]/rental-agreement/consent
+         (persists checkout consent record — called from Step4Review on continue)
+       - POST /api/admin/bookings/[bookingId]/rental-agreement/sign
+         (persists pickup signature — called from checklist pickup flow)
+       - GET /api/admin/bookings/[bookingId]/rental-agreement
+         (admin read — returns current agreement state)
+    4. UI changes:
+       - Step4Review.tsx: on continue, fire consent POST before advancing to Step5
+       - ChecklistForm.tsx (pickup type): wire customerSignature into the rental
+         agreement sign route in addition to the existing checklist save
+       - Admin booking detail: add a "Rental Agreement" card showing consent
+         timestamp, pickup signature status, and terms version
+
+    RentalAgreement document shape:
+    - id
+    - bookingId
+    - userId
+    - status: "pending_consent" | "consented" | "signed" | "voided"
+    - termsVersion: string (e.g. "2026-03")
+    - consentedAt?: Date (Step4 checkbox timestamp)
+    - consentIpHint?: string (not required, best-effort)
+    - customerSignature?: string (base64 from pickup SignaturePad)
+    - signedAt?: Date
+    - adminWitnessId?: string
+    - adminWitnessSignature?: string
+    - createdAt: Date
+    - updatedAt: Date
+
+    Terms versioning:
+    - Add a RENTAL_TERMS_VERSION constant to lib/data/rentalTerms.ts (e.g. "2026-03")
+    - Store it on the agreement record so future terms changes are traceable
+
+    Constraints:
+    - Consent record must be created before booking advances to payment (Step5)
+    - Do not block booking creation if consent POST fails — log monitoring alert
+      and continue (same best-effort pattern as coverage evaluation)
+    - Pickup signature route is admin-only
+    - Agreement is read-only after status === "signed"
+    - Do not re-generate or mutate a signed agreement
+    - Follow existing auth, rate-limit, audit, and monitoring patterns
+    - Add Firestore index and rules for rental_agreements collection
+    - Keep backward compatibility — existing bookings without an agreement record
+      should not error; admin view should show "No agreement on record" gracefully
+
+    Acceptance criteria:
+    - Every new booking has a timestamped consent record before payment
+    - Pickup checklist signature is also persisted to the agreement
+    - Admin can see agreement status on booking detail
+    - Terms version is stored so content changes don't retroactively alter old agreements
+    - TypeScript compiles cleanly
+
+    Return:
+    - changed files
+    - RentalAgreement document shape
+    - any deferred items for v1

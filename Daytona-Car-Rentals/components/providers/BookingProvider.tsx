@@ -38,6 +38,8 @@ export type BookingState = {
   protectionPackage: ProtectionPackageId;
   returnLocation: string;
   startDate: string;
+  termsConsentedAt?: string;
+  termsVersion?: string;
   step: number;
   totalDays: number;
   vehicleId: string;
@@ -61,6 +63,7 @@ type BookingContextValue = {
   setRiskProfile: (riskProfile: BookingRiskProfile | null) => void;
   setProtectionPackage: (packageId: ProtectionPackageId) => void;
   setStep: (step: number) => void;
+  setTermsConsent: (consentedAt: string, termsVersion: string) => void;
   state: BookingState;
   toggleExtra: (key: keyof BookingExtras) => void;
   updateDates: (start: string, end: string) => void;
@@ -80,6 +83,8 @@ type StoredBookingDraft = {
     | "protectionPackage"
     | "returnLocation"
     | "startDate"
+    | "termsConsentedAt"
+    | "termsVersion"
     | "step"
     | "vehicleId"
   >;
@@ -96,6 +101,8 @@ type StoredBookingResumeState = {
     | "protectionPackage"
     | "returnLocation"
     | "startDate"
+    | "termsConsentedAt"
+    | "termsVersion"
     | "step"
     | "vehicleId"
   >;
@@ -144,6 +151,8 @@ export function BookingProvider({
       pickupLocation: initialLocation,
       returnLocation: initialLocation,
       promoCode: "",
+      termsConsentedAt: undefined,
+      termsVersion: undefined,
       protectionPackage: "standard",
       extras: {
         additionalDriver: false,
@@ -321,6 +330,8 @@ export function BookingProvider({
         pickupLocation: state.pickupLocation,
         returnLocation: state.returnLocation,
         promoCode: state.promoCode,
+        termsConsentedAt: state.termsConsentedAt,
+        termsVersion: state.termsVersion,
         protectionPackage: state.protectionPackage,
         extras: state.extras,
         documents: state.documents,
@@ -338,6 +349,8 @@ export function BookingProvider({
         pickupLocation: state.pickupLocation,
         returnLocation: state.returnLocation,
         promoCode: state.promoCode,
+        termsConsentedAt: state.termsConsentedAt,
+        termsVersion: state.termsVersion,
         protectionPackage: state.protectionPackage,
         extras: state.extras,
         step: state.step,
@@ -483,6 +496,14 @@ export function BookingProvider({
     setState((current) => ({ ...current, step }));
   }
 
+  function setTermsConsent(consentedAt: string, termsVersion: string) {
+    setState((current) => ({
+      ...current,
+      termsConsentedAt: consentedAt,
+      termsVersion,
+    }));
+  }
+
   function updateDates(start: string, end: string) {
     setState((current) => ({ ...current, startDate: start, endDate: end }));
   }
@@ -573,6 +594,7 @@ export function BookingProvider({
         promoError,
         setPromoCode,
         setStep,
+        setTermsConsent,
         updateDates,
         updateLocation,
         toggleExtra,

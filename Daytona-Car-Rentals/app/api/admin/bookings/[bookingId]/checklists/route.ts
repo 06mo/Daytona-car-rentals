@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 
 import { withAuth } from "@/lib/middleware/withAuth";
+import { reportMonitoringEvent } from "@/lib/monitoring/monitoring";
 import { enforceRateLimit, rateLimitPolicies } from "@/lib/security/rateLimit";
 import { getChecklist, upsertChecklist } from "@/lib/services/checklistService";
 import { getBookingById } from "@/lib/services/bookingService";
+import { recordPickupSignature } from "@/lib/services/rentalAgreementService";
 import type { ChecklistStatus, ChecklistType, FuelLevel, UpsertVehicleChecklistInput } from "@/types";
 
 type RequestContext = {
@@ -96,6 +98,23 @@ export const POST = withAuth<RequestContext>(async (request, context, user) => {
     user.userId,
     user.role,
   );
+
+  if (body.type === "pickup" && body.status === "submitted" && body.customerSignature) {
+    try {
+      await recordPickupSignature(booking.id, user.userId, body.customerSignature, body.adminSignature);
+    } catch (error) {
+      await reportMonitoringEvent({
+        source: "api.admin.checklists",
+        message: "Rental agreement pickup signature persistence failed after checklist submission.",
+        severity: "error",
+        error,
+        context: {
+          bookingId: booking.id,
+          checklistType: body.type,
+        },
+      });
+    }
+  }
 
   return NextResponse.json({ checklist });
 });

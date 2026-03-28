@@ -14,6 +14,7 @@ import { getBookingTimeline, listAdminUsers, listAdminVehicles, listUserDocument
 import { getBookingById } from "@/lib/services/bookingService";
 import { summarizeInsuranceVerificationForBooking } from "@/lib/services/insuranceVerificationService";
 import { listPartners } from "@/lib/services/partnerService";
+import { getAgreementForBooking } from "@/lib/services/rentalAgreementService";
 import { formatCurrency } from "@/lib/utils";
 
 type PageProps = {
@@ -28,7 +29,7 @@ export default async function AdminBookingDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  const [users, vehicles, partners, documents, pickupChecklist, dropoffChecklist, adjustments, insuranceSummary] = await Promise.all([
+  const [users, vehicles, partners, documents, pickupChecklist, dropoffChecklist, adjustments, insuranceSummary, rentalAgreement] = await Promise.all([
     listAdminUsers(),
     listAdminVehicles(),
     listPartners(),
@@ -37,6 +38,7 @@ export default async function AdminBookingDetailPage({ params }: PageProps) {
     getChecklist(booking.id, "dropoff"),
     listAdjustments(booking.id),
     summarizeInsuranceVerificationForBooking(booking.id).catch(() => null),
+    getAgreementForBooking(booking.id).catch(() => null),
   ]);
   const customer = users.find((user) => user.id === booking.userId) ?? null;
   const vehicle = vehicles.find((item) => item.id === booking.vehicleId) ?? null;
@@ -194,6 +196,23 @@ export default async function AdminBookingDetailPage({ params }: PageProps) {
                 />
               ) : (
                 <p className="text-sm text-slate-500">No verification data available.</p>
+              )}
+            </div>
+          </div>
+          <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-slate-900">Rental Agreement</h2>
+            <div className="mt-4 grid gap-2 text-sm text-slate-600">
+              {rentalAgreement ? (
+                <>
+                  <p>Status: {rentalAgreement.status.replaceAll("_", " ")}</p>
+                  <p>Terms version: {rentalAgreement.termsVersion}</p>
+                  <p>Consented at: {rentalAgreement.consentedAt ? rentalAgreement.consentedAt.toLocaleString() : "Not recorded"}</p>
+                  <p>Signed at: {rentalAgreement.signedAt ? rentalAgreement.signedAt.toLocaleString() : "Not signed at pickup"}</p>
+                  <p>Customer signature on file: {rentalAgreement.customerSignature ? "Yes" : "No"}</p>
+                  <p>Admin witness signature: {rentalAgreement.adminWitnessSignature ? "Present" : "Not recorded"}</p>
+                </>
+              ) : (
+                <p>No agreement on record.</p>
               )}
             </div>
           </div>

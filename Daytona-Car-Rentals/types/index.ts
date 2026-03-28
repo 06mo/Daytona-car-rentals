@@ -18,6 +18,7 @@ export * from "@/types/partner";
 export * from "@/types/pricing";
 export * from "@/types/protection";
 export * from "@/types/promo";
+export * from "@/types/rentalAgreement";
 export * from "@/types/risk";
 export * from "@/types/settings";
 export * from "@/types/user";

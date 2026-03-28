@@ -3,6 +3,8 @@ export type RentalTermsSection = {
   body: string[];
 };
 
+export const RENTAL_TERMS_VERSION = "2026-03";
+
 export const rentalTermsSections: RentalTermsSection[] = [
   {
     title: "Eligibility and Driver Requirements",

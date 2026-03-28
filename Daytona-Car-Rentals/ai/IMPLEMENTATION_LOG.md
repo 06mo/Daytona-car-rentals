@@ -78,6 +78,8 @@
 | DCR-070 | Implement first provider integration | Codex | ✅ Complete | `lib/insurance/providers/axle.ts`, provider-backed renter policy verification wiring |
 | DCR-071 | Build claims evidence package generator | Codex | ✅ Complete | `lib/services/claimsEvidenceService.ts`, admin endpoint |
 | DCR-072 | Add channel-aware booking compliance rules | Codex | ✅ Complete | `lib/services/channelComplianceService.ts`, booking enforcement, admin channel metadata |
+| DCR-073 | Design rental agreement system | Claude | ✅ Complete | `ai/DCR-073-rental-agreement.md` |
+| DCR-074 | Implement rental agreement system | Codex | ✅ Complete | `types/rentalAgreement.ts`, `lib/services/rentalAgreementService.ts`, agreement API routes, Step 4 consent capture, pickup signature persistence |
 
 ---
 

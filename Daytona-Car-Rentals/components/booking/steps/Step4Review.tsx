@@ -8,11 +8,12 @@ import { useToast } from "@/components/providers/ToastProvider";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { useBooking } from "@/components/providers/BookingProvider";
+import { RENTAL_TERMS_VERSION } from "../../../lib/data/rentalTerms";
 import { formatBookingDateTime } from "@/lib/utils/bookingDateTime";
 import { formatCurrency } from "@/lib/utils";
 
 export function Step4Review() {
-  const { setStep, state, vehicle } = useBooking();
+  const { setStep, setTermsConsent, state, vehicle } = useBooking();
   const { toast } = useToast();
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [termsOpen, setTermsOpen] = useState(false);
@@ -48,6 +49,7 @@ export function Step4Review() {
         },
       }),
     }).catch(() => undefined);
+    setTermsConsent(new Date().toISOString(), RENTAL_TERMS_VERSION);
     setStep(5);
   }
 
