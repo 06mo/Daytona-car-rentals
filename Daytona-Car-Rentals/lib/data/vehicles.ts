@@ -128,8 +128,7 @@ export const vehicles: TuroVehicle[] = [
     transmission: "Automatic",
     mileage: "Unlimited",
     features: ["Bluetooth", "Backup Camera", "Apple CarPlay", "AWD", "Panoramic Sunroof", "Heated Seats"],
-    // 2018 Hyundai Santa Fe (NC/DM generation)
-    image: "https://upload.wikimedia.org/wikipedia/commons/d/d2/2018_Hyundai_Santa_Fe_front_6.15.18.jpg",
+    image: "/images/santafe-2018.jpeg",
     turoUrl: "https://turo.com/us/en/suv-rental/united-states/daytona-beach-fl/hyundai/santa-fe-sport/3143340",
     description: "A capable 2018 Santa Fe Sport with AWD and a panoramic sunroof. Ready for beach days, road trips, and everything the Florida sunshine brings.",
   },
@@ -144,8 +143,7 @@ export const vehicles: TuroVehicle[] = [
     transmission: "Automatic",
     mileage: "Unlimited",
     features: ["Bluetooth", "Backup Camera", "USB", "Fuel Efficient"],
-    // 2016 Ford Focus Titanium Sedan
-    image: "https://upload.wikimedia.org/wikipedia/commons/4/45/2016_Ford_Focus_Titanium_Sedan_in_Blue_Candy,_Front_Left,_03-05-2023.jpg",
+    image: "/images/focus-2016.jpeg",
     turoUrl: "https://turo.com/us/en/car-rental/united-states/daytona-beach-fl/ford/focus/3139374",
     description: "An economical 2016 Ford Focus — our most budget-friendly option. Fuel-efficient and easy to park anywhere in Daytona Beach.",
   },
@@ -160,8 +158,7 @@ export const vehicles: TuroVehicle[] = [
     transmission: "Automatic",
     mileage: "Unlimited",
     features: ["Bluetooth", "Backup Camera", "Apple CarPlay", "Android Auto", "USB-C", "Toyota Safety Sense"],
-    // 2020 Toyota Corolla LE sedan (NA market)
-    image: "https://upload.wikimedia.org/wikipedia/commons/b/b7/2020_Toyota_Corolla_LE_(NA-market)_front_4.29.19.jpg",
+    image: "/images/corolla-2020.jpeg",
     turoUrl: "https://turo.com/us/en/car-rental/united-states/daytona-beach-fl/toyota/corolla/3275798",
     description: "A dependable 2020 Corolla in black with Toyota's advanced safety suite. Reliable, comfortable, and ready to go.",
   },

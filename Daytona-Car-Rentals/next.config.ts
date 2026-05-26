@@ -13,10 +13,6 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "*.turo.com",
       },
-      {
-        protocol: "https",
-        hostname: "upload.wikimedia.org",
-      },
     ],
   },
 
