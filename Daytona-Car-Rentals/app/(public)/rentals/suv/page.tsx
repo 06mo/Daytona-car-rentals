@@ -4,9 +4,7 @@ import { CarFront, Route, UsersRound } from "lucide-react";
 import { LandingPage } from "@/components/landing/LandingPage";
 import type { FAQItem } from "@/components/landing/LandingFAQ";
 import { buildFaqSchema, createLandingMetadata, localBusinessSchema } from "@/lib/data/localBusinessSchema";
-import { listVehicles } from "@/lib/services/vehicleService";
-
-export const dynamic = "force-dynamic";
+import { vehicles } from "@/lib/data/vehicles";
 
 export const metadata: Metadata = createLandingMetadata(
   "suv",
@@ -17,24 +15,25 @@ export const metadata: Metadata = createLandingMetadata(
 const faqItems: FAQItem[] = [
   {
     question: "How many passengers fit in your SUVs?",
-    answer: "Our SUVs seat between 5 and 8 passengers depending on the model. Seating capacity is shown on each vehicle listing.",
+    answer: "Our SUVs seat 5 passengers. Seating capacity is shown on each vehicle listing on Turo.",
   },
   {
     question: "Do you have SUVs with unlimited mileage?",
-    answer: "Most of our SUVs include unlimited mileage. Check the individual vehicle listing for mileage policy details.",
+    answer: "Most of our SUVs include unlimited mileage. Check the individual vehicle listing on Turo for mileage policy details.",
   },
   {
     question: "Can I drive to Orlando in a rental SUV?",
-    answer: "Yes. Interstate driving within Florida is fully permitted under our rental agreement.",
+    answer: "Yes. Interstate driving within Florida is fully permitted under Turo's standard rental terms.",
   },
   {
     question: "Is there a deposit required?",
-    answer: "A refundable deposit is charged at the time of booking. The amount varies by vehicle and is shown clearly before checkout.",
+    answer: "Turo handles all deposits and security holds. The amount is shown clearly before you confirm your booking.",
   },
 ];
 
-export default async function SuvLandingPage() {
-  const vehicles = await listVehicles({ available: true, category: "suv" });
+export default function SuvLandingPage() {
+  const suvVehicles = vehicles.filter((v) => v.category === "suv");
+  const displayVehicles = suvVehicles.length > 0 ? suvVehicles : vehicles;
 
   return (
     <LandingPage
@@ -46,17 +45,17 @@ export default async function SuvLandingPage() {
         {
           icon: UsersRound,
           title: "Family-Ready Space",
-          body: "Seating for 5–8 with cargo room for luggage, beach gear, and strollers.",
+          body: "Seating for 5 with cargo room for luggage, beach gear, and strollers.",
         },
         {
           icon: Route,
-          title: "All-Terrain Capable",
+          title: "Road-Trip Capable",
           body: "Comfortable on highway and beach-access roads alike.",
         },
         {
           icon: CarFront,
           title: "Competitive Daily Rates",
-          body: "Transparent SUV pricing with no mileage surprises on most models.",
+          body: "Transparent SUV pricing on Turo with no mileage surprises on most models.",
         },
       ]}
       headline="SUV Rentals in Daytona Beach"
@@ -64,7 +63,7 @@ export default async function SuvLandingPage() {
       subheadline="Need space for the whole crew? Our SUV fleet handles Daytona's beaches, outlet malls, and day trips to Orlando with room to spare."
       vehicleBody="Explore our available SUVs for families, golf weekends, and Florida road trips."
       vehicleHeading="Available SUVs"
-      vehicles={vehicles}
+      vehicles={displayVehicles}
     />
   );
 }

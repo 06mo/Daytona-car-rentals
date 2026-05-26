@@ -4,9 +4,7 @@ import { AlertTriangle, Flag, Map } from "lucide-react";
 import { LandingPage } from "@/components/landing/LandingPage";
 import type { FAQItem } from "@/components/landing/LandingFAQ";
 import { buildFaqSchema, createLandingMetadata, localBusinessSchema } from "@/lib/data/localBusinessSchema";
-import { listVehicles } from "@/lib/services/vehicleService";
-
-export const dynamic = "force-dynamic";
+import { vehicles } from "@/lib/data/vehicles";
 
 export const metadata: Metadata = createLandingMetadata(
   "daytona-500",
@@ -21,7 +19,7 @@ const faqItems: FAQItem[] = [
   },
   {
     question: "Is there surge pricing during the Daytona 500?",
-    answer: "Yes. Race week falls within our Speed Weeks peak pricing period. The exact rate is shown transparently at checkout before you confirm.",
+    answer: "Yes. Race week falls within our Speed Weeks peak pricing period. The exact rate is shown transparently on Turo before you confirm.",
   },
   {
     question: "Where can I park at the Daytona International Speedway?",
@@ -29,7 +27,7 @@ const faqItems: FAQItem[] = [
   },
   {
     question: "What if my race is cancelled or postponed?",
-    answer: "Bookings can be cancelled up to 24 hours before the rental start. See our cancellation policy for details.",
+    answer: "Bookings can be cancelled through Turo's cancellation policy. Check your booking details for the applicable terms.",
   },
   {
     question: "Do you offer one-way rentals from the airport?",
@@ -37,8 +35,7 @@ const faqItems: FAQItem[] = [
   },
 ];
 
-export default async function Daytona500LandingPage() {
-  const vehicles = await listVehicles({ available: true });
+export default function Daytona500LandingPage() {
   const eventSchema = {
     "@context": "https://schema.org",
     "@type": "SportsEvent",
@@ -84,7 +81,7 @@ export default async function Daytona500LandingPage() {
       notice={
         <div className="rounded-[2rem] border border-orange-300 bg-orange-50 px-6 py-5 text-sm leading-7 text-slate-700 shadow-sm">
           <strong className="text-slate-900">Race Week Notice:</strong> Vehicle demand peaks sharply during Daytona 500 week.
-          Peak-season pricing applies and is shown at checkout. Book early to lock in availability.
+          Book early through Turo to lock in availability.
         </div>
       }
       schemas={[localBusinessSchema, buildFaqSchema(faqItems), eventSchema]}

@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
-import { Mail, MapPin, Phone } from "lucide-react";
+import { ExternalLink, Mail, MapPin, Phone } from "lucide-react";
+
+import { TURO_HOST_URL } from "@/lib/data/vehicles";
 
 export const metadata: Metadata = {
   title: "Contact Us — Daytona Car Rentals",
   description:
-    "Get in touch with Daytona Car Rentals. Find our location, phone number, email, and hours of operation.",
+    "Get in touch with Daytona Car Rentals. Find our phone number, email, and hours of operation in Daytona Beach, FL.",
 };
 
 export default function ContactPage() {
@@ -12,22 +14,19 @@ export default function ContactPage() {
     <section className="mx-auto max-w-4xl px-6 py-16">
       <h1 className="text-4xl font-semibold tracking-tight text-slate-900">Contact Us</h1>
       <p className="mt-4 text-lg text-slate-600">
-        Questions about a booking or need help choosing a vehicle? We're here.
+        Questions about a vehicle or need help choosing the right car? We're here.
       </p>
 
       <div className="mt-12 grid gap-10 md:grid-cols-2">
         {/* Contact details */}
         <div className="space-y-8">
           <div className="flex gap-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-50">
-              <Phone className="h-5 w-5 text-brand-600" />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orange-50">
+              <Phone className="h-5 w-5 text-orange-500" />
             </div>
             <div>
               <p className="font-medium text-slate-900">Phone</p>
-              <a
-                href="tel:+13868984035"
-                className="mt-1 text-slate-600 hover:text-brand-600"
-              >
+              <a href="tel:+13868984035" className="mt-1 text-slate-600 hover:text-orange-500">
                 (386) 898-4035
               </a>
               <p className="mt-1 text-sm text-slate-500">Mon–Sat 8 AM – 6 PM ET</p>
@@ -35,15 +34,12 @@ export default function ContactPage() {
           </div>
 
           <div className="flex gap-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-50">
-              <Mail className="h-5 w-5 text-brand-600" />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orange-50">
+              <Mail className="h-5 w-5 text-orange-500" />
             </div>
             <div>
               <p className="font-medium text-slate-900">Email</p>
-              <a
-                href="mailto:hello@daytonacarrentals.com"
-                className="mt-1 text-slate-600 hover:text-brand-600"
-              >
+              <a href="mailto:hello@daytonacarrentals.com" className="mt-1 text-slate-600 hover:text-orange-500">
                 hello@daytonacarrentals.com
               </a>
               <p className="mt-1 text-sm text-slate-500">We reply within one business day.</p>
@@ -51,13 +47,13 @@ export default function ContactPage() {
           </div>
 
           <div className="flex gap-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-50">
-              <MapPin className="h-5 w-5 text-brand-600" />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orange-50">
+              <MapPin className="h-5 w-5 text-orange-500" />
             </div>
             <div>
               <p className="font-medium text-slate-900">Location</p>
               <a
-                className="mt-1 inline-block text-slate-600 hover:text-brand-600"
+                className="mt-1 inline-block text-slate-600 hover:text-orange-500"
                 href="https://maps.google.com/?q=2500+W+International+Speedway+Blvd,+Daytona+Beach,+FL"
                 rel="noreferrer"
                 target="_blank"
@@ -66,9 +62,7 @@ export default function ContactPage() {
                 <br />
                 Daytona Beach, FL 32114
               </a>
-              <p className="mt-1 text-sm text-slate-500">
-                Pickup and drop-off by appointment.
-              </p>
+              <p className="mt-1 text-sm text-slate-500">Pickup and drop-off by appointment.</p>
             </div>
           </div>
         </div>
@@ -95,16 +89,21 @@ export default function ContactPage() {
             </tbody>
           </table>
 
-          <div className="mt-8 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-            <p className="font-medium text-slate-900">Booking questions?</p>
+          <div className="mt-8 rounded-xl border border-orange-200 bg-orange-50 p-4 text-sm text-slate-600">
+            <p className="font-medium text-slate-900">Ready to book?</p>
             <p className="mt-1">
-              The fastest way to get help with an existing booking is through your{" "}
-              <a href="/dashboard" className="text-brand-600 underline underline-offset-2">
-                customer dashboard
-              </a>
-              , where you can view your reservation, upload documents, or request a
-              cancellation.
+              All bookings are handled through Turo, which provides instant confirmation, full
+              insurance coverage, and 24/7 roadside assistance.
             </p>
+            <a
+              href={TURO_HOST_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 inline-flex items-center gap-1.5 font-semibold text-orange-600 hover:text-orange-700"
+            >
+              View our fleet on Turo
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
           </div>
         </div>
       </div>

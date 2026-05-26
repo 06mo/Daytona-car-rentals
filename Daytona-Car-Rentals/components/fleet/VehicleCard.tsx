@@ -1,77 +1,37 @@
 import Image from "next/image";
-import Link from "next/link";
-import { Route, Settings2, Users } from "lucide-react";
+import { ExternalLink, Route, Settings2, Users } from "lucide-react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardContent } from "@/components/ui/Card";
 import { cn, formatCurrency } from "@/lib/utils";
-import type { Vehicle } from "@/types";
+import type { TuroVehicle } from "@/lib/data/vehicles";
 
 type VehicleCardProps = {
-  vehicle: Vehicle;
+  vehicle: TuroVehicle;
   className?: string;
-  endDate?: string;
-  location?: string;
-  startDate?: string;
 };
 
-function getVehicleImage(vehicle: Vehicle) {
-  const primaryImage = vehicle.images[0];
-
-  if (primaryImage?.startsWith("/") || primaryImage?.startsWith("http")) {
-    return primaryImage;
-  }
-
-  return "/images/vehicle-sedan.svg";
-}
-
-function getTotalPrice(vehicle: Vehicle, startDate?: string, endDate?: string) {
-  if (!startDate || !endDate) {
-    return null;
-  }
-
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
-
-  return vehicle.dailyRate * days;
-}
-
-export function VehicleCard({ vehicle, className, startDate, endDate, location }: VehicleCardProps) {
-  const bookingParams = new URLSearchParams();
-
-  if (startDate) {
-    bookingParams.set("start", startDate);
-  }
-
-  if (endDate) {
-    bookingParams.set("end", endDate);
-  }
-
-  if (location) {
-    bookingParams.set("location", location);
-  }
-
-  const bookingUrl = bookingParams.toString()
-    ? `/booking/${vehicle.id}?${bookingParams.toString()}`
-    : `/fleet/${vehicle.id}`;
-  const totalPrice = getTotalPrice(vehicle, startDate, endDate);
-
+export function VehicleCard({ vehicle, className }: VehicleCardProps) {
   return (
-    <Link href={bookingUrl}>
+    <a href={vehicle.turoUrl} target="_blank" rel="noreferrer">
       <Card className={cn("overflow-hidden border-slate-200 transition hover:-translate-y-1 hover:shadow-xl", className)}>
         <div className="relative aspect-video overflow-hidden">
-          <Image alt={`${vehicle.year} ${vehicle.make} ${vehicle.model}`} className="object-cover" fill src={getVehicleImage(vehicle)} />
+          <Image
+            alt={`${vehicle.year} ${vehicle.color} ${vehicle.make} ${vehicle.model}`}
+            className="object-cover"
+            fill
+            src={vehicle.image}
+          />
           <div className="absolute left-4 top-4">
-            <Badge className="bg-white/95 text-slate-900">{vehicle.category}</Badge>
+            <Badge className="bg-white/95 text-slate-900 capitalize">{vehicle.category}</Badge>
           </div>
         </div>
         <CardContent className="space-y-5 pt-6">
-          <div className="space-y-2">
+          <div className="space-y-1">
             <h3 className="text-lg font-semibold text-slate-900">
               {vehicle.year} {vehicle.make} {vehicle.model}
             </h3>
-            <p className="text-sm text-slate-500">{vehicle.location}</p>
+            <p className="text-sm text-slate-500">{vehicle.color} · Daytona Beach, FL</p>
           </div>
 
           <div className="grid gap-3 text-sm text-slate-600 sm:grid-cols-3">
@@ -85,26 +45,27 @@ export function VehicleCard({ vehicle, className, startDate, endDate, location }
             </span>
             <span className="flex items-center gap-2">
               <Route className="h-4 w-4 text-orange-500" />
-              {vehicle.mileagePolicy === "unlimited" ? "Unlimited miles" : `${vehicle.mileagePolicy} mi/day`}
+              {vehicle.mileage}
             </span>
           </div>
 
           <div className="flex items-end justify-between gap-4">
             <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">From</p>
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Starting from</p>
               <p className="text-2xl font-bold text-orange-500">
-                {formatCurrency(vehicle.dailyRate / 100)}
+                {formatCurrency(vehicle.dailyRateFrom / 100)}
                 <span className="ml-1 text-sm font-medium text-slate-500">/day</span>
               </p>
-              {totalPrice ? (
-                <p className="mt-1 text-sm text-slate-500">Estimated trip total: {formatCurrency(totalPrice / 100)}</p>
-              ) : null}
+              <p className="mt-0.5 text-xs text-slate-400">Final price set by Turo</p>
             </div>
-            <span className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white">Book Now</span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
+              Book on Turo
+              <ExternalLink className="h-3.5 w-3.5" />
+            </span>
           </div>
         </CardContent>
       </Card>
-    </Link>
+    </a>
   );
 }
 

@@ -4,14 +4,12 @@ import { BriefcaseBusiness, Gem, ShieldCheck } from "lucide-react";
 import { LandingPage } from "@/components/landing/LandingPage";
 import type { FAQItem } from "@/components/landing/LandingFAQ";
 import { buildFaqSchema, createLandingMetadata, localBusinessSchema } from "@/lib/data/localBusinessSchema";
-import { listVehicles } from "@/lib/services/vehicleService";
-
-export const dynamic = "force-dynamic";
+import { vehicles } from "@/lib/data/vehicles";
 
 export const metadata: Metadata = createLandingMetadata(
   "luxury",
   "Luxury Car Rentals in Daytona Beach | Premium Fleet",
-  "Rent a luxury car in Daytona Beach. BMWs, Mercedes, and premium vehicles available for special occasions, business travel, and weekend getaways.",
+  "Rent a luxury car in Daytona Beach. Premium vehicles available for special occasions, business travel, and weekend getaways.",
 );
 
 const faqItems: FAQItem[] = [
@@ -25,7 +23,7 @@ const faqItems: FAQItem[] = [
   },
   {
     question: "Is extra insurance required for luxury vehicles?",
-    answer: "Standard rental insurance covers luxury vehicles. We also offer Collision Damage Waiver (CDW) as an add-on for full peace of mind.",
+    answer: "All bookings are through Turo, which includes protection plan options. No separate insurance card is required.",
   },
   {
     question: "Do you offer airport delivery for luxury vehicles?",
@@ -33,8 +31,9 @@ const faqItems: FAQItem[] = [
   },
 ];
 
-export default async function LuxuryLandingPage() {
-  const vehicles = await listVehicles({ available: true, category: "luxury" });
+export default function LuxuryLandingPage() {
+  const luxuryVehicles = vehicles.filter((v) => v.category === "luxury");
+  const displayVehicles = luxuryVehicles.length > 0 ? luxuryVehicles : vehicles;
 
   return (
     <LandingPage
@@ -46,7 +45,7 @@ export default async function LuxuryLandingPage() {
         {
           icon: Gem,
           title: "Premium Vehicles",
-          body: "Carefully maintained luxury cars kept to the highest standard.",
+          body: "Carefully maintained cars kept to the highest standard.",
         },
         {
           icon: ShieldCheck,
@@ -61,10 +60,10 @@ export default async function LuxuryLandingPage() {
       ]}
       headline="Luxury Car Rentals in Daytona Beach"
       schemas={[localBusinessSchema, buildFaqSchema(faqItems)]}
-      subheadline="Arrive in style. Our luxury fleet is available for anniversaries, corporate trips, race week VIP experiences, and anyone who simply wants to enjoy the drive."
+      subheadline="Arrive in style. Our premium fleet is available for anniversaries, corporate trips, race week VIP experiences, and anyone who simply wants to enjoy the drive."
       vehicleBody="Current premium availability for business travel, special occasions, and elevated weekend plans."
       vehicleHeading="Premium Fleet"
-      vehicles={vehicles}
+      vehicles={displayVehicles}
     />
   );
 }

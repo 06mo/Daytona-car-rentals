@@ -66,10 +66,10 @@ export function Button({
   );
 
   if (asChild) {
-    const linkProps = props as ButtonAsLinkProps;
+    const { href, target, rel, ...restLinkProps } = props as ButtonAsLinkProps;
 
     return (
-      <Link href={linkProps.href} className={classes}>
+      <Link href={href} target={target} rel={rel} className={classes} {...(restLinkProps as Record<string, unknown>)}>
         {content}
       </Link>
     );

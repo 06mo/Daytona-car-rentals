@@ -1,15 +1,17 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 
-import { AnalyticsTracker } from "@/components/analytics/AnalyticsTracker";
-import { ToastProvider } from "@/components/providers/ToastProvider";
-import { ReferralTracker } from "@/components/analytics/ReferralTracker";
-import "./globals.css";
 import { SiteShell } from "@/components/layout/SiteShell";
+import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Daytona Car Rentals",
-  description: "Modern car rentals with a fast, reliable booking experience.",
+  description:
+    "Locally owned car rentals in Daytona Beach, FL — book through Turo for easy, insured rentals. Economy, SUV, vans, and trucks available.",
+  openGraph: {
+    siteName: "Daytona Car Rentals",
+    locale: "en_US",
+    type: "website",
+  },
 };
 
 export default function RootLayout({
@@ -20,13 +22,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="font-sans">
-        <ToastProvider>
-          <Suspense fallback={null}>
-            <AnalyticsTracker />
-            <ReferralTracker />
-          </Suspense>
-          <SiteShell>{children}</SiteShell>
-        </ToastProvider>
+        <SiteShell>{children}</SiteShell>
       </body>
     </html>
   );

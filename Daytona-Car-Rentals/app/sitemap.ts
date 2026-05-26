@@ -1,8 +1,7 @@
 import type { MetadataRoute } from "next";
 
 import { BASE_URL } from "@/lib/data/localBusinessSchema";
-import { FirebaseConfigError } from "@/lib/firebase/firestore";
-import { listVehicles } from "@/lib/services/vehicleService";
+import { vehicles } from "@/lib/data/vehicles";
 
 const staticPages = [
   { path: "/", priority: 1 },
@@ -18,29 +17,18 @@ const staticPages = [
   { path: "/rentals/spring-break", priority: 0.85 },
 ] as const;
 
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+export default function sitemap(): MetadataRoute.Sitemap {
   const staticEntries: MetadataRoute.Sitemap = staticPages.map((page) => ({
     url: `${BASE_URL}${page.path}`,
     lastModified: new Date(),
     priority: page.priority,
   }));
 
-  try {
-    const vehicles = await listVehicles();
+  const vehicleEntries: MetadataRoute.Sitemap = vehicles.map((vehicle) => ({
+    url: `${BASE_URL}/fleet/${vehicle.id}`,
+    lastModified: new Date(),
+    priority: 0.7,
+  }));
 
-    return [
-      ...staticEntries,
-      ...vehicles.map((vehicle) => ({
-        url: `${BASE_URL}/fleet/${vehicle.id}`,
-        lastModified: vehicle.updatedAt,
-        priority: 0.7,
-      })),
-    ];
-  } catch (error) {
-    if (!(error instanceof FirebaseConfigError)) {
-      console.error("[sitemap] Failed to include vehicle pages:", error);
-    }
-
-    return staticEntries;
-  }
+  return [...staticEntries, ...vehicleEntries];
 }
