@@ -19,17 +19,9 @@ export interface TuroVehicle {
 
 export const TURO_HOST_URL = "https://turo.com/host/15068965";
 
-// Unsplash stock photos — one set per vehicle type for variety
-const PHOTOS = {
-  sedanBlue:   "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=1200&q=80",
-  sedanSilver: "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?auto=format&fit=crop&w=1200&q=80",
-  sedanWhite:  "https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?auto=format&fit=crop&w=1200&q=80",
-  sedanIvory:  "https://images.unsplash.com/photo-1502877338535-766e1452684a?auto=format&fit=crop&w=1200&q=80",
-  suvBlack:    "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=1200&q=80",
-  suvSilver:   "https://images.unsplash.com/photo-1519641471654-76ce0107ad1b?auto=format&fit=crop&w=1200&q=80",
-  truck:       "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&q=80",
-  van:         "https://images.unsplash.com/photo-1543465077-db45d34b88a5?auto=format&fit=crop&w=1200&q=80",
-};
+// Wikimedia Commons press/reference photos — placeholders until real car photos are added.
+// Each URL is the specific make/model from commons.wikimedia.org (CC-licensed).
+// Replace with your own photos by dropping images in /public/images/ and updating these paths.
 
 export const vehicles: TuroVehicle[] = [
   {
@@ -43,7 +35,8 @@ export const vehicles: TuroVehicle[] = [
     transmission: "Automatic",
     mileage: "Unlimited",
     features: ["Bluetooth", "Backup Camera", "Apple CarPlay", "Android Auto", "USB-C", "Keyless Entry"],
-    image: PHOTOS.sedanBlue,
+    // 2021 Toyota Corolla LE sedan — same E210 generation as 2024
+    image: "https://upload.wikimedia.org/wikipedia/commons/b/b3/2021_Toyota_Corolla_LE,_front_right,_07-13-2024.jpg",
     turoUrl: "https://turo.com/us/en/car-rental/united-states/daytona-beach-fl/toyota/corolla/2943051",
     description: "A reliable, fuel-efficient 2024 Corolla in eye-catching blue. Great for beach weekends, airport runs, and everything in between.",
     featured: true,
@@ -59,7 +52,8 @@ export const vehicles: TuroVehicle[] = [
     transmission: "Automatic",
     mileage: "Unlimited",
     features: ["Bluetooth", "Backup Camera", "Apple CarPlay", "Android Auto", "Truck Bed", "Towing Capacity", "4WD"],
-    image: PHOTOS.truck,
+    // 2023 Chevrolet Silverado LT — identical body to 2024
+    image: "https://upload.wikimedia.org/wikipedia/commons/b/bf/2023_Chevrolet_Silverado_LT_front_view.jpg",
     turoUrl: "https://turo.com/us/en/truck-rental/united-states/daytona-beach-fl/chevrolet/silverado-1500/2942499",
     description: "A powerful 2024 Silverado in sleek black. Perfect for hauling gear, towing, or cruising Daytona in style.",
     featured: true,
@@ -75,7 +69,8 @@ export const vehicles: TuroVehicle[] = [
     transmission: "Automatic",
     mileage: "Unlimited",
     features: ["Bluetooth", "Backup Camera", "Apple CarPlay", "Android Auto", "Sliding Doors", "Third Row Seating", "USB Ports Throughout"],
-    image: PHOTOS.van,
+    // 2020 Kia Carnival KA4 — same generation as 2024
+    image: "https://upload.wikimedia.org/wikipedia/commons/2/2a/20201013_Kia_Carnival_Front_Side.jpg",
     turoUrl: "https://turo.com/us/en/minivan-rental/united-states/daytona-beach-fl/kia/carnival/2943029",
     description: "A spacious 2024 Kia Carnival in black. Fits the whole crew comfortably — ideal for family trips, group travel, or event weekends.",
     featured: true,
@@ -91,7 +86,8 @@ export const vehicles: TuroVehicle[] = [
     transmission: "Automatic",
     mileage: "Unlimited",
     features: ["Bluetooth", "Backup Camera", "Apple CarPlay", "Android Auto", "USB-C", "Keyless Entry"],
-    image: PHOTOS.sedanSilver,
+    // 2020 Toyota Corolla SE in Classic Silver Metallic — same E210 generation
+    image: "https://upload.wikimedia.org/wikipedia/commons/3/38/2020_Toyota_Corolla_SE_Upgrade_Package_Sedan_in_Classic_Silver_Metallic,_front_left,_2025-04-20.jpg",
     turoUrl: "https://turo.com/us/en/car-rental/united-states/daytona-beach-fl/toyota/corolla/2943048",
     description: "A clean, efficient 2024 Corolla in silver. Simple, dependable, and ready for your Daytona Beach adventure.",
   },
@@ -106,7 +102,8 @@ export const vehicles: TuroVehicle[] = [
     transmission: "Automatic",
     mileage: "Unlimited",
     features: ["Bluetooth", "Backup Camera", "Apple CarPlay", "Android Auto", "Sliding Doors", "Third Row Seating", "USB Ports Throughout"],
-    image: PHOTOS.van,
+    // Kia Carnival KA4 Hybrid in Snow White Pearl — same generation as 2024
+    image: "https://upload.wikimedia.org/wikipedia/commons/f/f6/Kia_Carnival_Hybrid_KA4_PE_HEV_Snow_White_Pearl_(5).jpg",
     turoUrl: "https://turo.com/us/en/minivan-rental/united-states/daytona-beach-fl/kia/carnival/2946592",
     description: "A 2024 Kia Carnival in blue — the ultimate people mover. Seats 8 in comfort with room for luggage.",
   },
@@ -121,7 +118,8 @@ export const vehicles: TuroVehicle[] = [
     transmission: "Automatic",
     mileage: "Unlimited",
     features: ["Bluetooth", "Backup Camera", "Apple CarPlay", "Android Auto", "Adaptive Cruise Control", "Lane Assist"],
-    image: PHOTOS.sedanBlue,
+    // Toyota Camry XV80 — 2024 generation
+    image: "https://upload.wikimedia.org/wikipedia/commons/5/54/TOYOTA_CAMRY_(XV80)_China.jpg",
     turoUrl: "https://turo.com/us/en/car-rental/united-states/daytona-beach-fl/toyota/camry/2982907",
     description: "A stylish 2024 Camry in blue with a smooth ride and modern safety features. Great for longer trips up and down the Florida coast.",
   },
@@ -136,7 +134,8 @@ export const vehicles: TuroVehicle[] = [
     transmission: "Automatic",
     mileage: "Unlimited",
     features: ["Bluetooth", "Backup Camera", "Apple CarPlay", "AWD", "Panoramic Sunroof", "Heated Seats"],
-    image: PHOTOS.suvBlack,
+    // 2018 Hyundai Santa Fe (NC/DM generation)
+    image: "https://upload.wikimedia.org/wikipedia/commons/d/d2/2018_Hyundai_Santa_Fe_front_6.15.18.jpg",
     turoUrl: "https://turo.com/us/en/suv-rental/united-states/daytona-beach-fl/hyundai/santa-fe-sport/3143340",
     description: "A capable 2018 Santa Fe Sport with AWD and a panoramic sunroof. Ready for beach days, road trips, and everything the Florida sunshine brings.",
   },
@@ -151,7 +150,8 @@ export const vehicles: TuroVehicle[] = [
     transmission: "Automatic",
     mileage: "Unlimited",
     features: ["Bluetooth", "Backup Camera", "USB", "Fuel Efficient"],
-    image: PHOTOS.sedanWhite,
+    // 2016 Ford Focus Titanium Sedan
+    image: "https://upload.wikimedia.org/wikipedia/commons/4/45/2016_Ford_Focus_Titanium_Sedan_in_Blue_Candy,_Front_Left,_03-05-2023.jpg",
     turoUrl: "https://turo.com/us/en/car-rental/united-states/daytona-beach-fl/ford/focus/3139374",
     description: "An economical 2016 Ford Focus — our most budget-friendly option. Fuel-efficient and easy to park anywhere in Daytona Beach.",
   },
@@ -166,7 +166,8 @@ export const vehicles: TuroVehicle[] = [
     transmission: "Automatic",
     mileage: "Unlimited",
     features: ["Bluetooth", "Backup Camera", "Apple CarPlay", "Android Auto", "USB-C", "Toyota Safety Sense"],
-    image: PHOTOS.sedanSilver,
+    // 2020 Toyota Corolla LE sedan (NA market)
+    image: "https://upload.wikimedia.org/wikipedia/commons/b/b7/2020_Toyota_Corolla_LE_(NA-market)_front_4.29.19.jpg",
     turoUrl: "https://turo.com/us/en/car-rental/united-states/daytona-beach-fl/toyota/corolla/3275798",
     description: "A dependable 2020 Corolla in black with Toyota's advanced safety suite. Reliable, comfortable, and ready to go.",
   },
@@ -181,7 +182,8 @@ export const vehicles: TuroVehicle[] = [
     transmission: "Automatic",
     mileage: "Unlimited",
     features: ["Bluetooth", "Backup Camera", "Apple CarPlay", "Compact SUV", "Easy Parking", "Roof Rack"],
-    image: PHOTOS.suvSilver,
+    // 2018 Ford EcoSport SE 4WD
+    image: "https://upload.wikimedia.org/wikipedia/commons/7/7f/2018_Ford_EcoSport_SE_4WD,_Front_Right,_09-25-2020.jpg",
     turoUrl: "https://turo.com/us/en/suv-rental/united-states/daytona-beach-fl/ford/ecosport/3580557",
     description: "A nimble 2018 Ford EcoSport — the SUV that fits everywhere. Great for navigating busy Daytona Beach events.",
   },
@@ -196,7 +198,8 @@ export const vehicles: TuroVehicle[] = [
     transmission: "Automatic",
     mileage: "Unlimited",
     features: ["Bluetooth", "Backup Camera", "USB", "Fuel Efficient", "Spacious Trunk"],
-    image: PHOTOS.sedanSilver,
+    // 2016 Hyundai Elantra AD (Avante)
+    image: "https://upload.wikimedia.org/wikipedia/commons/a/a8/2016_Hyundai_Avante_AD_(Elantra)_1.6_LPi.jpg",
     turoUrl: "https://turo.com/us/en/car-rental/united-states/daytona-beach-fl/hyundai/elantra/3321200",
     description: "A solid 2016 Hyundai Elantra — reliable, affordable, and easy on gas. A smart choice for budget-conscious travelers.",
   },
@@ -211,7 +214,8 @@ export const vehicles: TuroVehicle[] = [
     transmission: "Automatic",
     mileage: "Unlimited",
     features: ["Bluetooth", "Backup Camera", "Apple CarPlay", "Android Auto", "Adaptive Cruise Control", "Lane Assist", "Wireless Charging"],
-    image: PHOTOS.sedanIvory,
+    // Toyota Camry XV80 — alternate angle
+    image: "https://upload.wikimedia.org/wikipedia/commons/2/28/TOYOTA_CAMRY_(XV80)_China_(9).jpg",
     turoUrl: "https://turo.com/us/en/car-rental/united-states/daytona-beach-fl/toyota/camry/2973721",
     description: "A refined 2024 Camry in ivory — one of our newest additions. Packed with tech, smooth on the highway, and great for any occasion.",
   },
