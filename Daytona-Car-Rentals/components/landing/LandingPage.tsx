@@ -6,7 +6,7 @@ import { type FAQItem, LandingFAQ } from "@/components/landing/LandingFAQ";
 import { type LandingFeature, LandingFeatures } from "@/components/landing/LandingFeatures";
 import { LandingHero } from "@/components/landing/LandingHero";
 import { LandingVehicleSection } from "@/components/landing/LandingVehicleSection";
-import type { Vehicle } from "@/types";
+import type { TuroVehicle } from "@/lib/data/vehicles";
 
 type LandingPageProps = {
   headline: string;
@@ -14,7 +14,7 @@ type LandingPageProps = {
   badge?: string;
   features: LandingFeature[];
   faqItems: FAQItem[];
-  vehicles: Vehicle[];
+  vehicles: TuroVehicle[];
   vehicleHeading?: string;
   vehicleBody?: string;
   ctaHeading: string;

@@ -7,7 +7,11 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "firebasestorage.googleapis.com",
+        hostname: "imageio.turo.com",
+      },
+      {
+        protocol: "https",
+        hostname: "*.turo.com",
       },
     ],
   },

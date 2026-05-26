@@ -4,9 +4,7 @@ import { Car, Compass, Route } from "lucide-react";
 import { LandingPage } from "@/components/landing/LandingPage";
 import type { FAQItem } from "@/components/landing/LandingFAQ";
 import { buildFaqSchema, createLandingMetadata, localBusinessSchema } from "@/lib/data/localBusinessSchema";
-import { listVehicles } from "@/lib/services/vehicleService";
-
-export const dynamic = "force-dynamic";
+import { vehicles } from "@/lib/data/vehicles";
 
 export const metadata: Metadata = createLandingMetadata(
   "bike-week",
@@ -29,9 +27,7 @@ const faqItems: FAQItem[] = [
   },
 ];
 
-export default async function BikeWeekLandingPage() {
-  const vehicles = await listVehicles({ available: true });
-
+export default function BikeWeekLandingPage() {
   return (
     <LandingPage
       badge="March · Daytona Beach, FL"
@@ -58,7 +54,7 @@ export default async function BikeWeekLandingPage() {
       headline="Car Rental During Bike Week Daytona Beach"
       schemas={[localBusinessSchema, buildFaqSchema(faqItems)]}
       subheadline="Not everyone at Bike Week is on two wheels. Rent a car to explore New Smyrna Beach, St. Augustine, or the Kennedy Space Center while the action unfolds on Main Street."
-      vehicleBody="Browse our current Bike Week-friendly fleet across economy, SUV, luxury, and van categories."
+      vehicleBody="Browse our current Bike Week-friendly fleet across economy, SUV, and van categories."
       vehicleHeading="Available Bike Week Rentals"
       vehicles={vehicles}
     />

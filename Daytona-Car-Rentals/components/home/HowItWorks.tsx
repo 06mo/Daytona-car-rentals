@@ -1,20 +1,20 @@
-import { CarFront, CreditCard, KeyRound } from "lucide-react";
+import { CarFront, ShieldCheck, KeyRound } from "lucide-react";
 
 const steps = [
   {
     icon: CarFront,
-    title: "Choose Your Car",
-    description: "Browse our fleet, compare styles, and find the right fit for your trip and budget.",
+    title: "Browse Our Fleet",
+    description: "Explore economy cars, SUVs, vans, and trucks on this site. Find the right vehicle for your trip and budget.",
   },
   {
-    icon: CreditCard,
-    title: "Book & Pay Online",
-    description: "Select your dates, reserve in minutes, and secure your rental with Stripe.",
+    icon: ShieldCheck,
+    title: "Book Securely on Turo",
+    description: "Click through to Turo to complete your booking. Turo handles payment, insurance, and roadside assistance — all in one place.",
   },
   {
     icon: KeyRound,
     title: "Pick Up & Drive",
-    description: "Show your ID, collect the keys, and get on the road without the usual hassle.",
+    description: "Meet us at the agreed location in Daytona Beach, collect the keys, and get on the road — no airport counter lines.",
   },
 ];
 
