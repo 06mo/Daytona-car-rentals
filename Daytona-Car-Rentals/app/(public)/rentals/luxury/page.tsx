@@ -8,8 +8,8 @@ import { vehicles } from "@/lib/data/vehicles";
 
 export const metadata: Metadata = createLandingMetadata(
   "luxury",
-  "Luxury Car Rentals in Daytona Beach | Premium Fleet",
-  "Rent a luxury car in Daytona Beach. Premium vehicles available for special occasions, business travel, and weekend getaways.",
+  "Premium Car Rentals in Daytona Beach | Late-Model Fleet",
+  "Rent a late-model, well-maintained car in Daytona Beach for special occasions, business travel, or a standout weekend. Book through Turo — full insurance included.",
 );
 
 const faqItems: FAQItem[] = [

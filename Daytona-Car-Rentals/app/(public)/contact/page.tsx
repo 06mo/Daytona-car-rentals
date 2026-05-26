@@ -39,8 +39,8 @@ export default function ContactPage() {
             </div>
             <div>
               <p className="font-medium text-slate-900">Email</p>
-              <a href="mailto:hello@daytonacarrentals.com" className="mt-1 text-slate-600 hover:text-orange-500">
-                hello@daytonacarrentals.com
+              <a href="mailto:msooijir@gmail.com" className="mt-1 text-slate-600 hover:text-orange-500">
+                msooijir@gmail.com
               </a>
               <p className="mt-1 text-sm text-slate-500">We reply within one business day.</p>
             </div>

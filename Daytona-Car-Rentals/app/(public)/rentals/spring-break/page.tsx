@@ -8,8 +8,8 @@ import { vehicles } from "@/lib/data/vehicles";
 
 export const metadata: Metadata = createLandingMetadata(
   "spring-break",
-  "Spring Break Car Rental Daytona Beach | Groups Welcome",
-  "Rent a car or van for Spring Break in Daytona Beach. Great rates for groups. Book early — March and April availability fills fast.",
+  "Spring Break Car Rental Daytona Beach | Vans & Sedans",
+  "Rent a car or van for Spring Break in Daytona Beach from a local Turo host. Groups up to 8 passengers. March & April availability fills fast — book now.",
 );
 
 const faqItems: FAQItem[] = [

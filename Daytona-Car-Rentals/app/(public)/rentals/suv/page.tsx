@@ -8,8 +8,8 @@ import { vehicles } from "@/lib/data/vehicles";
 
 export const metadata: Metadata = createLandingMetadata(
   "suv",
-  "SUV Rentals in Daytona Beach | Spacious & Comfortable",
-  "Rent an SUV in Daytona Beach for families, groups, and road trips. Spacious interiors, ample luggage space, and online booking.",
+  "SUV Rentals in Daytona Beach, FL | Local Turo Host",
+  "Rent an SUV in Daytona Beach from a local host. Hyundai Santa Fe Sport with AWD, Ford EcoSport & more. Book through Turo with full insurance. Call (386) 898-4035.",
 );
 
 const faqItems: FAQItem[] = [

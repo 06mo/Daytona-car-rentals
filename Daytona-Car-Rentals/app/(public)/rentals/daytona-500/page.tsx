@@ -9,7 +9,7 @@ import { vehicles } from "@/lib/data/vehicles";
 export const metadata: Metadata = createLandingMetadata(
   "daytona-500",
   "Car Rental for Daytona 500 & Speed Weeks | Book Early",
-  "Rent a car for the Daytona 500 and Speed Weeks. Fleet availability is limited during race week — secure your vehicle before it sells out.",
+  "Rent a car for the Daytona 500 from a local Daytona Beach host. Sedans, SUVs, trucks & vans available. Fleet fills fast during Speed Weeks — book now through Turo.",
 );
 
 const faqItems: FAQItem[] = [

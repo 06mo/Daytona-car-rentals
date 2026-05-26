@@ -8,8 +8,8 @@ import { vehicles } from "@/lib/data/vehicles";
 
 export const metadata: Metadata = createLandingMetadata(
   "van",
-  "Van Rentals in Daytona Beach | Groups & Families",
-  "Rent a van or people-carrier in Daytona Beach. Ideal for large groups, family reunions, sporting events, and airport transfers.",
+  "Van Rentals in Daytona Beach | 8-Passenger Kia Carnival",
+  "Rent a 2024 Kia Carnival 8-passenger van in Daytona Beach. Perfect for families, group travel, airport transfers & events. Book through Turo. Call (386) 898-4035.",
 );
 
 const faqItems: FAQItem[] = [

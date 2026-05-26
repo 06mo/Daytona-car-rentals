@@ -10,8 +10,10 @@ export const localBusinessSchema = {
   name: "Daytona Car Rentals",
   url: BASE_URL,
   telephone: "(386) 898-4035",
-  email: "hello@daytonacarrentals.com",
+  email: "msooijir@gmail.com",
   priceRange: "$$",
+  image: `${BASE_URL}/images/corolla-blue-2024.jpeg`,
+  sameAs: ["https://turo.com/host/15068965"],
   address: {
     "@type": "PostalAddress",
     streetAddress: "2500 W International Speedway Blvd",
@@ -25,6 +27,20 @@ export const localBusinessSchema = {
     latitude: 29.1853,
     longitude: -81.0566,
   },
+  openingHoursSpecification: [
+    {
+      "@type": "OpeningHoursSpecification",
+      dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+      opens: "08:00",
+      closes: "18:00",
+    },
+    {
+      "@type": "OpeningHoursSpecification",
+      dayOfWeek: "Saturday",
+      opens: "09:00",
+      closes: "16:00",
+    },
+  ],
 } as const;
 
 export function buildFaqSchema(items: FAQItem[]) {
@@ -44,6 +60,7 @@ export function buildFaqSchema(items: FAQItem[]) {
 
 export function createLandingMetadata(slug: string, title: string, description: string): Metadata {
   const url = `${BASE_URL}/rentals/${slug}`;
+  const ogImage = `${BASE_URL}/images/corolla-blue-2024.jpeg`;
 
   return {
     title,
@@ -58,6 +75,13 @@ export function createLandingMetadata(slug: string, title: string, description: 
       siteName: "Daytona Car Rentals",
       locale: "en_US",
       type: "website",
+      images: [{ url: ogImage, width: 1200, height: 800, alt: title }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [ogImage],
     },
   };
 }

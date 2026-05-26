@@ -8,8 +8,8 @@ import { vehicles } from "@/lib/data/vehicles";
 
 export const metadata: Metadata = createLandingMetadata(
   "bike-week",
-  "Car Rental During Bike Week Daytona Beach | Explore FL",
-  "Need a car during Daytona Bike Week? Explore the area while the crowds gather on the strip. Easy online booking, full fleet available.",
+  "Car Rental for Bike Week Daytona Beach | Local Host on Turo",
+  "Rent a car during Daytona Bike Week from a local host. Sedans, SUVs, trucks & vans available. Book through Turo — full insurance included. Call (386) 898-4035.",
 );
 
 const faqItems: FAQItem[] = [

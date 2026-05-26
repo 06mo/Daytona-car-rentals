@@ -8,8 +8,8 @@ import { vehicles } from "@/lib/data/vehicles";
 
 export const metadata: Metadata = createLandingMetadata(
   "daytona-beach-airport",
-  "Daytona Beach Airport Car Rental | Daytona Car Rentals",
-  "Pick up your rental car at Daytona Beach Airport (DAB). No hidden fees, unlimited mileage options, and online booking in minutes.",
+  "Daytona Beach Airport Car Rental (DAB) | Local Turo Host",
+  "Car rental near Daytona Beach International Airport (DAB). Local host with 12 vehicles — sedans, SUVs, trucks & 8-passenger vans. Unlimited mileage. Book on Turo in minutes.",
 );
 
 const faqItems: FAQItem[] = [
