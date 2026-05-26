@@ -7,8 +7,6 @@ export interface TuroVehicle {
   model: string;
   color: string;
   category: VehicleCategory;
-  /** Starting daily rate in cents (display only — actual price set by Turo) */
-  dailyRateFrom: number;
   seats: number;
   transmission: "Automatic" | "Manual";
   mileage: string;
@@ -29,7 +27,6 @@ export const vehicles: TuroVehicle[] = [
     model: "Corolla",
     color: "Blue",
     category: "economy",
-    dailyRateFrom: 5500,
     seats: 5,
     transmission: "Automatic",
     mileage: "Unlimited",
@@ -46,7 +43,6 @@ export const vehicles: TuroVehicle[] = [
     model: "Silverado 1500",
     color: "Black",
     category: "truck",
-    dailyRateFrom: 10500,
     seats: 5,
     transmission: "Automatic",
     mileage: "Unlimited",
@@ -63,7 +59,6 @@ export const vehicles: TuroVehicle[] = [
     model: "Carnival",
     color: "Black",
     category: "van",
-    dailyRateFrom: 9500,
     seats: 8,
     transmission: "Automatic",
     mileage: "Unlimited",
@@ -80,7 +75,6 @@ export const vehicles: TuroVehicle[] = [
     model: "Corolla",
     color: "Silver",
     category: "economy",
-    dailyRateFrom: 5500,
     seats: 5,
     transmission: "Automatic",
     mileage: "Unlimited",
@@ -96,7 +90,6 @@ export const vehicles: TuroVehicle[] = [
     model: "Carnival",
     color: "Blue",
     category: "van",
-    dailyRateFrom: 9500,
     seats: 8,
     transmission: "Automatic",
     mileage: "Unlimited",
@@ -112,7 +105,6 @@ export const vehicles: TuroVehicle[] = [
     model: "Camry",
     color: "Blue",
     category: "economy",
-    dailyRateFrom: 6500,
     seats: 5,
     transmission: "Automatic",
     mileage: "Unlimited",
@@ -128,7 +120,6 @@ export const vehicles: TuroVehicle[] = [
     model: "Santa Fe Sport",
     color: "Black",
     category: "suv",
-    dailyRateFrom: 7500,
     seats: 5,
     transmission: "Automatic",
     mileage: "Unlimited",
@@ -144,7 +135,6 @@ export const vehicles: TuroVehicle[] = [
     model: "Focus",
     color: "White",
     category: "economy",
-    dailyRateFrom: 4500,
     seats: 5,
     transmission: "Automatic",
     mileage: "Unlimited",
@@ -160,7 +150,6 @@ export const vehicles: TuroVehicle[] = [
     model: "Corolla",
     color: "Black",
     category: "economy",
-    dailyRateFrom: 5000,
     seats: 5,
     transmission: "Automatic",
     mileage: "Unlimited",
@@ -176,7 +165,6 @@ export const vehicles: TuroVehicle[] = [
     model: "EcoSport",
     color: "Silver",
     category: "suv",
-    dailyRateFrom: 6500,
     seats: 5,
     transmission: "Automatic",
     mileage: "Unlimited",
@@ -192,7 +180,6 @@ export const vehicles: TuroVehicle[] = [
     model: "Elantra",
     color: "Gray",
     category: "economy",
-    dailyRateFrom: 4500,
     seats: 5,
     transmission: "Automatic",
     mileage: "Unlimited",
@@ -208,7 +195,6 @@ export const vehicles: TuroVehicle[] = [
     model: "Camry",
     color: "Ivory",
     category: "economy",
-    dailyRateFrom: 6500,
     seats: 5,
     transmission: "Automatic",
     mileage: "Unlimited",

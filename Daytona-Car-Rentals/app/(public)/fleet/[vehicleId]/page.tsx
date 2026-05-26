@@ -6,7 +6,6 @@ import { notFound } from "next/navigation";
 
 import { Badge } from "@/components/ui/Badge";
 import { vehicles } from "@/lib/data/vehicles";
-import { formatCurrency } from "@/lib/utils";
 
 type PageProps = {
   params: Promise<{ vehicleId: string }>;
@@ -26,7 +25,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   return {
     title: `${vehicle.year} ${vehicle.make} ${vehicle.model} — Daytona Car Rentals`,
-    description: `Rent a ${vehicle.year} ${vehicle.color} ${vehicle.make} ${vehicle.model} in Daytona Beach from ${formatCurrency(vehicle.dailyRateFrom / 100)}/day. Book through Turo.`,
+    description: `Rent a ${vehicle.year} ${vehicle.color} ${vehicle.make} ${vehicle.model} in Daytona Beach. Book instantly through Turo with full insurance included.`,
   };
 }
 
@@ -119,18 +118,15 @@ export default async function VehicleDetailPage({ params }: PageProps) {
         {/* Right column — booking card */}
         <div>
           <div className="sticky top-24 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Starting from</p>
-            <p className="mt-1 text-4xl font-bold text-orange-500">
-              {formatCurrency(vehicle.dailyRateFrom / 100)}
-              <span className="ml-1 text-base font-medium text-slate-500">/day</span>
+            <p className="text-sm text-slate-600">
+              Pricing is set by Turo and varies based on your dates and demand. Check Turo for the exact rate.
             </p>
-            <p className="mt-1 text-xs text-slate-400">Final price set by Turo based on your dates</p>
 
             <a
               href={vehicle.turoUrl}
               target="_blank"
               rel="noreferrer"
-              className="mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-orange-500 py-3.5 text-base font-semibold text-white shadow-md transition hover:bg-orange-600"
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-orange-500 py-3.5 text-base font-semibold text-white shadow-md transition hover:bg-orange-600"
             >
               Book This Car on Turo
               <ExternalLink className="h-4 w-4" />

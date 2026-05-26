@@ -3,7 +3,7 @@ import { ExternalLink, Route, Settings2, Users } from "lucide-react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardContent } from "@/components/ui/Card";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import type { TuroVehicle } from "@/lib/data/vehicles";
 
 type VehicleCardProps = {
@@ -49,15 +49,7 @@ export function VehicleCard({ vehicle, className }: VehicleCardProps) {
             </span>
           </div>
 
-          <div className="flex items-end justify-between gap-4">
-            <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Starting from</p>
-              <p className="text-2xl font-bold text-orange-500">
-                {formatCurrency(vehicle.dailyRateFrom / 100)}
-                <span className="ml-1 text-sm font-medium text-slate-500">/day</span>
-              </p>
-              <p className="mt-0.5 text-xs text-slate-400">Final price set by Turo</p>
-            </div>
+          <div className="flex justify-end">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
               Book on Turo
               <ExternalLink className="h-3.5 w-3.5" />
@@ -81,7 +73,7 @@ export function VehicleCardSkeleton() {
           <div className="h-4 animate-pulse rounded bg-slate-200" />
           <div className="h-4 animate-pulse rounded bg-slate-200" />
         </div>
-        <div className="h-10 w-1/2 animate-pulse rounded bg-slate-200" />
+        <div className="h-8 w-1/3 ml-auto animate-pulse rounded-full bg-slate-200" />
       </div>
     </div>
   );
