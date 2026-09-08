@@ -1,0 +1,12 @@
+when:
+  - event: [push, pull_request]
+
+steps:
+  - name: quality-check
+    image: node:22-alpine
+    commands:
+      - node --version
+      - npm --version
+      - npm ci
+      - npm run lint --if-present
+      - ./node_modules/.bin/tsc --noEmit
