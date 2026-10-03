@@ -1,62 +1,32 @@
-import type { Metadata } from "next";
-import { Car, Compass, Route } from "lucide-react";
-
-import { LandingPage } from "@/components/landing/LandingPage";
-import type { FAQItem } from "@/components/landing/LandingFAQ";
-import { buildFaqSchema, createLandingMetadata, localBusinessSchema } from "@/lib/data/localBusinessSchema";
+import Link from "next/link";
+import { VehicleCard } from "@/components/fleet/VehicleCard";
 import { vehicles } from "@/lib/data/vehicles";
-
-export const metadata: Metadata = createLandingMetadata(
+import { createLandingMetadata } from "@/lib/data/localBusinessSchema";
+export const metadata = createLandingMetadata(
   "bike-week",
-  "Car Rental During Bike Week Daytona Beach | Explore FL",
-  "Need a car during Daytona Bike Week? Explore the area while the crowds gather on the strip. Easy online booking, full fleet available.",
+  "Get around Bike Week." + " · Daytona Car Rentals",
+  "Local cars for a busy Daytona week.",
 );
-
-const faqItems: FAQItem[] = [
-  {
-    question: "Is it hard to get around Daytona Beach during Bike Week?",
-    answer: "Parts of the main strip can be congested, but a car gives you full flexibility to explore the wider area on your own schedule.",
-  },
-  {
-    question: "What's the best vehicle type for Bike Week?",
-    answer: "Most of our customers choose an economy or SUV. Economy cars are nimble in traffic, while SUVs are better if you are travelling in a group.",
-  },
-  {
-    question: "When does Bike Week usually run?",
-    answer: "Daytona Bike Week typically runs for 10 days in early-to-mid March. Check the official schedule and book your vehicle to cover your stay.",
-  },
-];
-
-export default function BikeWeekLandingPage() {
+export default function RentalPage() {
   return (
-    <LandingPage
-      badge="March · Daytona Beach, FL"
-      ctaBody="Plan day trips, beach stops, and off-strip dinners without relying on crowded Bike Week traffic patterns."
-      ctaHeading="Four Wheels, Your Rules — Even During Bike Week."
-      faqItems={faqItems}
-      features={[
-        {
-          icon: Car,
-          title: "Beat the Traffic",
-          body: "A car lets you explore beyond the Bike Week strip on your own schedule.",
-        },
-        {
-          icon: Route,
-          title: "Day Trips Made Easy",
-          body: "St. Augustine, Kennedy Space Center, and Orlando attractions are all within reach.",
-        },
-        {
-          icon: Compass,
-          title: "Book Alongside Your Hotel",
-          body: "Secure your rental at the same time you book accommodation because both fill up fast in March.",
-        },
-      ]}
-      headline="Car Rental During Bike Week Daytona Beach"
-      schemas={[localBusinessSchema, buildFaqSchema(faqItems)]}
-      subheadline="Not everyone at Bike Week is on two wheels. Rent a car to explore New Smyrna Beach, St. Augustine, or the Kennedy Space Center while the action unfolds on Main Street."
-      vehicleBody="Browse our current Bike Week-friendly fleet across economy, SUV, and van categories."
-      vehicleHeading="Available Bike Week Rentals"
-      vehicles={vehicles}
-    />
+    <section className="container page-section">
+      <p className="eyebrow">DAYTONA BEACH, FLORIDA</p>
+      <h1>Get around Bike Week.</h1>
+      <p className="page-intro">Local cars for a busy Daytona week.</p>
+      <div className="notice">
+        Pick your dates and leave room for pickup and traffic. Car rentals do
+        not permit racing or unauthorized use.
+      </div>
+      <div className="car-grid">
+        {vehicles.slice(0, 6).map((v) => (
+          <VehicleCard key={v.id} vehicle={v} />
+        ))}
+      </div>
+      <p className="small-note">
+        Direct-rental requests require manual approval. Turo bookings follow the
+        platform’s own terms.{" "}
+        <Link href="/contact">Ask about pickup and eligibility.</Link>
+      </p>
+    </section>
   );
 }

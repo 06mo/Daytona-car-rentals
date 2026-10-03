@@ -1,5 +1,9 @@
 import Link from "next/link";
-import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from "react";
+import type {
+  AnchorHTMLAttributes,
+  ButtonHTMLAttributes,
+  ReactNode,
+} from "react";
 
 import { cn } from "@/lib/utils";
 import type { ButtonSize, ButtonVariant } from "@/types";
@@ -28,11 +32,15 @@ type ButtonAsLinkProps = SharedProps &
   };
 
 const variantClasses: Record<ButtonVariant, string> = {
-  primary: "bg-orange-500 text-white hover:bg-orange-600 focus-visible:ring-orange-500",
-  secondary: "bg-slate-100 text-slate-900 hover:bg-slate-200 focus-visible:ring-slate-400",
-  ghost: "bg-transparent text-slate-700 hover:bg-slate-100 focus-visible:ring-slate-400",
+  primary:
+    "bg-brand-accent text-white hover:brightness-90 focus-visible:ring-brand-accent",
+  secondary:
+    "bg-slate-100 text-slate-900 hover:bg-slate-200 focus-visible:ring-slate-400",
+  ghost:
+    "bg-transparent text-slate-700 hover:bg-slate-100 focus-visible:ring-slate-400",
   danger: "bg-red-700 text-white hover:bg-red-800 focus-visible:ring-red-500",
-  outline: "border border-slate-300 bg-transparent text-slate-700 hover:bg-slate-50 focus-visible:ring-slate-400",
+  outline:
+    "border border-slate-300 bg-transparent text-slate-700 hover:bg-slate-50 focus-visible:ring-slate-400",
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
@@ -56,10 +64,20 @@ export function Button({
   asChild = false,
   ...props
 }: ButtonAsButtonProps | ButtonAsLinkProps) {
-  const classes = cn(baseClasses, variantClasses[variant], sizeClasses[size], fullWidth ? "w-full" : "", className);
+  const classes = cn(
+    baseClasses,
+    variantClasses[variant],
+    sizeClasses[size],
+    fullWidth ? "w-full" : "",
+    className,
+  );
   const content = (
     <>
-      {loading ? <Spinner className="h-4 w-4 border-current border-t-transparent" /> : leftIcon}
+      {loading ? (
+        <Spinner className="h-4 w-4 border-current border-t-transparent" />
+      ) : (
+        leftIcon
+      )}
       <span>{children}</span>
       {!loading ? rightIcon : null}
     </>
@@ -69,14 +87,24 @@ export function Button({
     const { href, target, rel, ...restLinkProps } = props as ButtonAsLinkProps;
 
     return (
-      <Link href={href} target={target} rel={rel} className={classes} {...(restLinkProps as Record<string, unknown>)}>
+      <Link
+        href={href}
+        target={target}
+        rel={rel}
+        className={classes}
+        {...(restLinkProps as Record<string, unknown>)}
+      >
         {content}
       </Link>
     );
   }
 
   return (
-    <button className={classes} disabled={loading || (props as ButtonAsButtonProps).disabled} {...(props as ButtonAsButtonProps)}>
+    <button
+      className={classes}
+      disabled={loading || (props as ButtonAsButtonProps).disabled}
+      {...(props as ButtonAsButtonProps)}
+    >
       {content}
     </button>
   );

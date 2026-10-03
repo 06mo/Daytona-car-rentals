@@ -1,66 +1,33 @@
-import type { Metadata } from "next";
-import { Compass, MapPinned, Plane } from "lucide-react";
-
-import { LandingPage } from "@/components/landing/LandingPage";
-import type { FAQItem } from "@/components/landing/LandingFAQ";
-import { buildFaqSchema, createLandingMetadata, localBusinessSchema } from "@/lib/data/localBusinessSchema";
+import Link from "next/link";
+import { VehicleCard } from "@/components/fleet/VehicleCard";
 import { vehicles } from "@/lib/data/vehicles";
-
-export const metadata: Metadata = createLandingMetadata(
+import { createLandingMetadata } from "@/lib/data/localBusinessSchema";
+export const metadata = createLandingMetadata(
   "daytona-beach-airport",
-  "Daytona Beach Airport Car Rental | Daytona Car Rentals",
-  "Pick up your rental car at Daytona Beach Airport (DAB). No hidden fees, unlimited mileage options, and online booking in minutes.",
+  "DAB airport delivery" + " · Daytona Car Rentals",
+  "Plan your arrival. We\u2019ll arrange the car.",
 );
-
-const faqItems: FAQItem[] = [
-  {
-    question: "Where exactly is pick-up?",
-    answer: "Pick-up is near Daytona Beach International Airport (DAB). Full address and directions are included with your Turo booking confirmation.",
-  },
-  {
-    question: "Can I book a car and pick it up same day?",
-    answer: "Yes. Book through Turo and we will have your vehicle ready. We recommend at least 2 hours notice for same-day bookings.",
-  },
-  {
-    question: "Do you offer a shuttle from the terminal?",
-    answer: "Contact us when you land and we will arrange collection. Our team is minutes from the terminal.",
-  },
-  {
-    question: "What documents do I need?",
-    answer: "A valid driver's license. Insurance is handled through Turo's protection plans, so no separate insurance card is required.",
-  },
-];
-
-export default function DaytonaBeachAirportPage() {
+export default function RentalPage() {
   return (
-    <LandingPage
-      badge="Daytona Beach International Airport · DAB"
-      ctaBody="Reserve ahead of arrival and step into a rental experience designed for quick airport-area pickup."
-      ctaHeading="Ready to Roll? Your Daytona Beach Adventure Starts Here."
-      faqItems={faqItems}
-      features={[
-        {
-          icon: Plane,
-          title: "Airport-Area Pick-Up",
-          body: "Convenient collection near DAB with clear directions included in your booking confirmation.",
-        },
-        {
-          icon: Compass,
-          title: "No Hidden Fees",
-          body: "The price you see on Turo is the price you pay. Transparent pricing from the start.",
-        },
-        {
-          icon: MapPinned,
-          title: "Flexible Returns",
-          body: "Return your vehicle at the agreed location at the end of your trip.",
-        },
-      ]}
-      headline="Car Rental at Daytona Beach Airport"
-      schemas={[localBusinessSchema, buildFaqSchema(faqItems)]}
-      subheadline="Reserve your vehicle before you land. We offer quick pick-up near Daytona Beach International Airport with a full fleet of economy, SUV, van, and truck rentals ready for your trip."
-      vehicleBody="All available vehicles near Daytona Beach and the airport corridor."
-      vehicleHeading="Airport-Ready Rentals"
-      vehicles={vehicles}
-    />
+    <section className="container page-section">
+      <p className="eyebrow">DAYTONA BEACH, FLORIDA</p>
+      <h1>DAB airport delivery</h1>
+      <p className="page-intro">Plan your arrival. We’ll arrange the car.</p>
+      <div className="notice">
+        Delivery and the exact meeting point must be confirmed before arrival.
+        Direct delivery is subject to approved airport arrangements; local
+        appointment pickup is also available.
+      </div>
+      <div className="car-grid">
+        {vehicles.slice(0, 6).map((v) => (
+          <VehicleCard key={v.id} vehicle={v} />
+        ))}
+      </div>
+      <p className="small-note">
+        Direct-rental requests require manual approval. Turo bookings follow the
+        platform’s own terms.{" "}
+        <Link href="/contact">Ask about pickup and eligibility.</Link>
+      </p>
+    </section>
   );
 }

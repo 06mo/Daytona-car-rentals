@@ -1,69 +1,35 @@
-import type { Metadata } from "next";
-import { CarFront, Route, UsersRound } from "lucide-react";
-
-import { LandingPage } from "@/components/landing/LandingPage";
-import type { FAQItem } from "@/components/landing/LandingFAQ";
-import { buildFaqSchema, createLandingMetadata, localBusinessSchema } from "@/lib/data/localBusinessSchema";
+import Link from "next/link";
+import { VehicleCard } from "@/components/fleet/VehicleCard";
 import { vehicles } from "@/lib/data/vehicles";
-
-export const metadata: Metadata = createLandingMetadata(
+import { createLandingMetadata } from "@/lib/data/localBusinessSchema";
+export const metadata = createLandingMetadata(
   "suv",
-  "SUV Rentals in Daytona Beach | Spacious & Comfortable",
-  "Rent an SUV in Daytona Beach for families, groups, and road trips. Spacious interiors, ample luggage space, and online booking.",
+  "A little more room." + " · Daytona Car Rentals",
+  "SUV rentals in Daytona Beach.",
 );
-
-const faqItems: FAQItem[] = [
-  {
-    question: "How many passengers fit in your SUVs?",
-    answer: "Our SUVs seat 5 passengers. Seating capacity is shown on each vehicle listing on Turo.",
-  },
-  {
-    question: "Do you have SUVs with unlimited mileage?",
-    answer: "Most of our SUVs include unlimited mileage. Check the individual vehicle listing on Turo for mileage policy details.",
-  },
-  {
-    question: "Can I drive to Orlando in a rental SUV?",
-    answer: "Yes. Interstate driving within Florida is fully permitted under Turo's standard rental terms.",
-  },
-  {
-    question: "Is there a deposit required?",
-    answer: "Turo handles all deposits and security holds. The amount is shown clearly before you confirm your booking.",
-  },
-];
-
-export default function SuvLandingPage() {
-  const suvVehicles = vehicles.filter((v) => v.category === "suv");
-  const displayVehicles = suvVehicles.length > 0 ? suvVehicles : vehicles;
-
+export default function RentalPage() {
   return (
-    <LandingPage
-      badge="Families · Groups · Road Trips"
-      ctaBody="Choose an SUV that balances comfort, cargo space, and road-trip freedom across Daytona Beach and beyond."
-      ctaHeading="Plenty of Room, Zero Compromise."
-      faqItems={faqItems}
-      features={[
-        {
-          icon: UsersRound,
-          title: "Family-Ready Space",
-          body: "Seating for 5 with cargo room for luggage, beach gear, and strollers.",
-        },
-        {
-          icon: Route,
-          title: "Road-Trip Capable",
-          body: "Comfortable on highway and beach-access roads alike.",
-        },
-        {
-          icon: CarFront,
-          title: "Competitive Daily Rates",
-          body: "Transparent SUV pricing on Turo with no mileage surprises on most models.",
-        },
-      ]}
-      headline="SUV Rentals in Daytona Beach"
-      schemas={[localBusinessSchema, buildFaqSchema(faqItems)]}
-      subheadline="Need space for the whole crew? Our SUV fleet handles Daytona's beaches, outlet malls, and day trips to Orlando with room to spare."
-      vehicleBody="Explore our available SUVs for families, golf weekends, and Florida road trips."
-      vehicleHeading="Available SUVs"
-      vehicles={displayVehicles}
-    />
+    <section className="container page-section">
+      <p className="eyebrow">DAYTONA BEACH, FLORIDA</p>
+      <h1>A little more room.</h1>
+      <p className="page-intro">SUV rentals in Daytona Beach.</p>
+      <div className="notice">
+        Choose your dates to check direct-rental pricing. Driver and insurance
+        review is required before confirmation.
+      </div>
+      <div className="car-grid">
+        {vehicles
+          .filter((v) => v.category === "suv")
+          .slice(0, 6)
+          .map((v) => (
+            <VehicleCard key={v.id} vehicle={v} />
+          ))}
+      </div>
+      <p className="small-note">
+        Direct-rental requests require manual approval. Turo bookings follow the
+        platform’s own terms.{" "}
+        <Link href="/contact">Ask about pickup and eligibility.</Link>
+      </p>
+    </section>
   );
 }

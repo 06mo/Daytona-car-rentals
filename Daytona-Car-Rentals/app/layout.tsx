@@ -6,7 +6,8 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Daytona Car Rentals",
   description:
-    "Locally owned car rentals in Daytona Beach, FL — book through Turo for easy, insured rentals. Economy, SUV, vans, and trucks available.",
+    "Local cars in Daytona Beach. Clear quotes, reviewed direct-rental requests, and Turo booking options.",
+  icons: { icon: "/brand/mark.svg" },
   openGraph: {
     siteName: "Daytona Car Rentals",
     locale: "en_US",
@@ -22,6 +23,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="font-sans">
+        <a className="skip-link" href="#main-content">
+          Skip to content
+        </a>
         <SiteShell>{children}</SiteShell>
       </body>
     </html>

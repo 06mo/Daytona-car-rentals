@@ -19,9 +19,7 @@ export interface TuroVehicle {
 
 export const TURO_HOST_URL = "https://turo.com/host/15068965";
 
-// Wikimedia Commons press/reference photos — placeholders until real car photos are added.
-// Each URL is the specific make/model from commons.wikimedia.org (CC-licensed).
-// Replace with your own photos by dropping images in /public/images/ and updating these paths.
+// Existing business-supplied fleet assets. Verify vehicle details before enabling direct rental.
 
 export const vehicles: TuroVehicle[] = [
   {

@@ -1,28 +1,41 @@
-import type { Metadata } from "next";
-
-import { RentalTermsContent } from "@/components/legal/RentalTermsContent";
-
-export const metadata: Metadata = {
-  title: "Rental Terms & Conditions — Daytona Car Rentals",
-  description:
-    "Review the rental terms and conditions for Daytona Car Rentals, including payment, pickup, return, protection, insurance, and driver responsibilities.",
-};
-
+export const metadata = { title: "Rental requirements · Daytona Car Rentals" };
 export default function TermsPage() {
   return (
-    <section className="mx-auto max-w-4xl px-6 py-16">
-      <div className="max-w-3xl">
-        <p className="text-sm font-semibold uppercase tracking-[0.28em] text-orange-500">Legal</p>
-        <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-900">Rental Terms & Conditions</h1>
-        <p className="mt-4 text-lg text-slate-600">
-          These terms apply to Daytona Car Rentals reservations and become part of the rental agreement when a customer
-          proceeds with booking and pickup.
-        </p>
-      </div>
-
-      <div className="mt-10 rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
-        <RentalTermsContent />
-      </div>
+    <section className="container page-section narrow">
+      <p className="eyebrow">BEFORE YOU BOOK</p>
+      <h1>Clear expectations.</h1>
+      <p className="page-intro">
+        A direct booking request is not a confirmed rental. The final approved
+        agreement, price and verification requirements are provided before
+        confirmation.
+      </p>
+      {[
+        {
+          title: "Driver approval",
+          text: "All drivers need a valid, unexpired license and must meet the approved age and eligibility rules. Identity and a standard driving-record review are handled separately, with appropriate consent. Additional drivers need the same approval.",
+        },
+        {
+          title: "Renter insurance",
+          text: "Qualifying renter coverage must be verified. A policy card alone does not establish coverage for the rental vehicle or every type of loss. Trip protection depends on the actual policy and approved trip requirements.",
+        },
+        {
+          title: "Price and payment",
+          text: "Your quote identifies rental charges, applicable taxes, surcharge, delivery and a separate security deposit. No payment is taken when you submit this request. Payment timing, cancellation terms and the signed agreement must be accepted before confirmation.",
+        },
+        {
+          title: "Availability and pickup",
+          text: "We check shared-channel availability manually before confirming. Each request has an internal review hold of up to 24 hours, or until pickup if sooner. An expired hold is not a reservation. Pickup is by appointment; airport delivery needs confirmed arrangements.",
+        },
+        {
+          title: "Turo bookings",
+          text: "Turo reservations, changes, payments and protection options follow the platform’s own terms. These direct-rental requirements do not replace your Turo agreement.",
+        },
+      ].map((s) => (
+        <div className="panel" key={s.title}>
+          <h2>{s.title}</h2>
+          <p>{s.text}</p>
+        </div>
+      ))}
     </section>
   );
 }

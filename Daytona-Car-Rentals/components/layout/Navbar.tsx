@@ -1,102 +1,58 @@
 "use client";
-
 import Link from "next/link";
-import { ExternalLink, Menu, X } from "lucide-react";
-import { usePathname } from "next/navigation";
+import { Menu, X } from "lucide-react";
 import { useState } from "react";
-
-import { Button } from "@/components/ui/Button";
-import { cn } from "@/lib/utils";
-import { TURO_HOST_URL } from "@/lib/data/vehicles";
-
-const navItems = [
-  { href: "/fleet", label: "Fleet" },
-  { href: "/about", label: "About" },
-  { href: "/contact", label: "Contact" },
-];
-
+import { usePathname } from "next/navigation";
+import { Brand } from "@/components/Brand";
 export function Navbar() {
-  const pathname = usePathname();
-  const [isOpen, setIsOpen] = useState(false);
-
+  const [open, setOpen] = useState(false),
+    path = usePathname();
+  if (path.startsWith("/admin")) return null;
+  const links = [
+    { href: "/fleet", label: "Our cars" },
+    { href: "/#how-it-works", label: "How it works" },
+    { href: "/contact", label: "Help" },
+    { href: "/my-trip", label: "My trip" },
+  ];
   return (
-    <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur-sm">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-        <Link href="/" className="text-lg font-semibold tracking-tight text-slate-950">
-          Daytona Car Rentals
+    <header className="site-nav">
+      <div className="container nav-inner">
+        <Link href="/" aria-label="Daytona Car Rentals home">
+          <Brand />
         </Link>
-
-        <nav className="hidden items-center gap-1 lg:flex">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "rounded-full px-4 py-2 text-sm font-medium text-slate-600 hover:text-orange-500",
-                pathname === item.href ? "font-semibold text-orange-500" : "",
-              )}
-            >
-              {item.label}
+        <nav className="desktop-nav" aria-label="Main navigation">
+          {links.map((l) => (
+            <Link key={l.href} href={l.href}>
+              {l.label}
             </Link>
           ))}
         </nav>
-
-        <div className="hidden items-center gap-3 lg:flex">
-          <a
-            href={TURO_HOST_URL}
-            target="_blank"
-            rel="noreferrer"
-            className={cn(
-              "inline-flex items-center gap-2 rounded-full bg-orange-500 px-5 py-2 text-sm font-semibold text-white transition hover:bg-orange-600",
-            )}
-          >
-            Book on Turo
-            <ExternalLink className="h-3.5 w-3.5" />
-          </a>
-        </div>
-
+        <Link className="nav-book" href="/booking">
+          Choose a car
+        </Link>
         <button
-          aria-expanded={isOpen}
-          aria-label="Toggle navigation menu"
-          className="inline-flex rounded-full border border-slate-200 p-2 text-slate-700 lg:hidden"
-          onClick={() => setIsOpen((current) => !current)}
-          type="button"
+          className="mobile-menu"
+          aria-label="Toggle navigation"
+          aria-expanded={open}
+          aria-controls="mobile-nav"
+          onClick={() => setOpen(!open)}
         >
-          {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          {open ? <X /> : <Menu />}
         </button>
       </div>
-
-      {isOpen ? (
-        <div className="border-t border-slate-200 bg-white px-6 py-6 lg:hidden">
-          <div className="flex flex-col gap-2">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "rounded-2xl px-4 py-3 text-base font-medium text-slate-700 hover:bg-slate-100",
-                  pathname === item.href ? "bg-orange-50 text-orange-600" : "",
-                )}
-                onClick={() => setIsOpen(false)}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </div>
-          <div className="mt-4">
-            <a
-              href={TURO_HOST_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-orange-500 px-5 py-3 text-base font-semibold text-white hover:bg-orange-600"
-              onClick={() => setIsOpen(false)}
-            >
-              Book on Turo
-              <ExternalLink className="h-4 w-4" />
-            </a>
-          </div>
-        </div>
-      ) : null}
+      {open && (
+        <nav
+          id="mobile-nav"
+          className="mobile-links"
+          aria-label="Mobile navigation"
+        >
+          {links.map((l) => (
+            <Link key={l.href} href={l.href} onClick={() => setOpen(false)}>
+              {l.label}
+            </Link>
+          ))}
+        </nav>
+      )}
     </header>
   );
 }

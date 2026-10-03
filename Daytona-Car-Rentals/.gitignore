@@ -8,3 +8,11 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 .env.local
+
+.env*
+!.env.example
+!.env.local.example
+data/
+playwright-report/
+test-results/
+*.sqlite*
