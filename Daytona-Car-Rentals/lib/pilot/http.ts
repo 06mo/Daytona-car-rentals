@@ -1,3 +1,4 @@
+import { TripDateError } from "./model";
 import { NextResponse } from "next/server";
 import {
   randomBytes,
@@ -42,6 +43,7 @@ export async function body(request: Request) {
   }
 }
 export function responseError(error: unknown) {
+  if (error instanceof TripDateError) return NextResponse.json({ error: error.message }, { status: 400 });
   if (error instanceof ZodError)
     return NextResponse.json(
       { error: error.issues[0]?.message || "Check your information." },

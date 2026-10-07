@@ -17,7 +17,7 @@ process.env.DCR_DATABASE_PATH = join(
 );
 import * as store from "../lib/pilot/store";
 const trip: TripInput = {
-  vehicleId: "corolla-2943051",
+  vehicleId: "corolla-3275798",
   start: "2030-05-01T10:00",
   end: "2030-05-04T10:00",
   location: "local",
@@ -54,7 +54,7 @@ test("civil rental days, surcharge and cents rounding stay correct across DST", 
       location: "airport",
     },
     store.settings(),
-    store.rates()[0],
+    store.rates().find((r) => r.vehicleId === trip.vehicleId)!,
     Date.parse("2027-01-01"),
   );
   assert.equal(q.days, 2);
@@ -124,7 +124,7 @@ test("stale rates invalidate quotes but don't rewrite submitted snapshots", () =
     start: "2030-06-01T10:00",
     end: "2030-06-04T10:00",
   });
-  const rate = store.rates()[0];
+  const rate = store.rates().find((r) => r.vehicleId === trip.vehicleId)!;
   store.adminAction({ action: "rate", ...rate, dailyCents: 9900 });
   assert.throws(
     () => store.createRequest(payload(q.id)),
@@ -140,7 +140,7 @@ test("stale rates invalidate quotes but don't rewrite submitted snapshots", () =
     ),
   );
   const total = accepted.quote.totalCents;
-  store.adminAction({ action: "rate", ...store.rates()[0], dailyCents: 12500 });
+  store.adminAction({ action: "rate", ...store.rates().find((r) => r.vehicleId === trip.vehicleId)!, dailyCents: 12500 });
   assert.equal(
     store.reservations().find((r) => r.id === accepted.id)?.quote.totalCents,
     total,
@@ -292,4 +292,42 @@ test("demo data cannot be reused as live inventory", () => {
   process.env.DCR_DEMO_MODE = "false";
   assert.throws(() => store.publicState(), /separate database/);
   process.env.DCR_DEMO_MODE = "true";
+});
+
+test("exactly five direct vehicles; Turo-only quote, saved-quote request and admin enablement are rejected", async () => {
+  const { vehicles } = await import("../lib/data/vehicles");
+  const { isDirectRental, directVehicles } = await import("../lib/data/rentalChannels");
+  assert.deepEqual(directVehicles.map((v) => `${v.year} ${v.make} ${v.model}`), ["2020 Toyota Corolla", "2018 Hyundai Santa Fe Sport", "2018 Ford EcoSport", "2016 Hyundai Elantra", "2016 Ford Focus"]);
+  const turo = vehicles.filter((v) => !isDirectRental(v.id));
+  assert.equal(turo.length, 7);
+  for (const v of turo) {
+    assert.throws(() => store.quote({ ...trip, vehicleId: v.id }), /Turo-only/);
+    const rate = store.rates().find((r) => r.vehicleId === v.id)!;
+    assert.throws(() => store.adminAction({action:"rate", ...rate, enabled:true}), /Turo-only/);
+    // Represents a quote saved by the previous all-direct pilot version.
+    const q = store.quote({...trip, start:"2031-05-01T10:00", end:"2031-05-04T10:00"});
+    q.vehicleId = v.id;
+    store.db().prepare("UPDATE quotes SET data=? WHERE id=?").run(JSON.stringify(q), q.id);
+    assert.throws(() => store.createRequest(payload(q.id)), /Turo-only/);
+  }
+});
+test("monthly remains one term of at most 30 civil days and preserves preference in the stored request", () => {
+  const start = "2031-01-01T10:00";
+  const q = store.quote({...trip, start, end:"2031-01-31T10:00", period:"monthly"});
+  assert.equal(q.days,30);
+  assert.throws(() => store.quote({...trip, start, end:"2031-01-31T10:01"}), /1–30/);
+  assert.throws(() => store.quote({...trip, start, end:"2031-02-01T10:00"}), /1–30/);
+  const request = store.createRequest(payload(q.id));
+  assert.equal(request.quote.period,"monthly");
+  assert.equal(request.status,"pending");
+});
+
+test("optional browse dates allow an empty plan but reject partial, invalid, reversed and over-limit terms", async () => {
+  const { validateJourneyDates } = await import("../lib/data/journey");
+  assert.equal(validateJourneyDates("", ""), "");
+  assert.match(validateJourneyDates("2035-01-01T10:00", ""), /both/);
+  assert.match(validateJourneyDates("2035-02-30T10:00", "2035-03-01T10:00"), /valid Eastern/);
+  assert.match(validateJourneyDates("2035-01-02T10:00", "2035-01-01T10:00"), /after/);
+  assert.match(validateJourneyDates("2035-01-01T10:00", "2035-01-31T10:01"), /30 days/);
+  assert.equal(validateJourneyDates("2035-01-01T10:00", "2035-01-31T10:00"), "");
 });

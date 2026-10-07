@@ -12,7 +12,7 @@ pnpm-debug.log*
 .env*
 !.env.example
 !.env.local.example
-data/
+/data/
 playwright-report/
 test-results/
 *.sqlite*

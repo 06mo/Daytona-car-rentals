@@ -1,8 +1,9 @@
 import Image from "next/image";
-import Link from "next/link";
+import { JourneyLink } from "@/components/journey/JourneyProvider";
+import { isDirectRental } from "@/lib/data/rentalChannels";
 import { notFound } from "next/navigation";
 import { vehicles } from "@/lib/data/vehicles";
-import { Button } from "@/components/ui/Button";
+
 export async function generateStaticParams() {
   return vehicles.map((v) => ({ vehicleId: v.id }));
 }
@@ -29,9 +30,9 @@ export default async function VehiclePage({
   if (!v) notFound();
   return (
     <section className="container page-section">
-      <Link className="text-link" href="/fleet">
+      <JourneyLink className="text-link" href="/fleet">
         All cars
-      </Link>
+      </JourneyLink>
       <div className="detail-grid">
         <div className="detail-image">
           <Image
@@ -55,13 +56,11 @@ export default async function VehiclePage({
             Daytona Beach appointment pickup
           </p>
           <p>
-            Choose your dates to see a direct-rental quote and mileage policy.
-            All direct requests require approval.
+            {isDirectRental(v.id) ? "Direct rental · Choose dates for a request. Operator approval is required; an alternative needs your explicit acceptance." : "Book on Turo · This vehicle is available for booking only through its Turo listing."}
           </p>
+          <p className="small-note">{v.features.join(" · ")}</p>
           <div className="detail-actions">
-            <Button asChild href={`/booking?vehicle=${v.id}`}>
-              Choose dates
-            </Button>
+            {isDirectRental(v.id) && <JourneyLink className="journey-primary" href="/booking" changes={{ vehicle: v.id }}>Request this car</JourneyLink>}
             <a
               className="text-link"
               href={v.turoUrl}

@@ -3,6 +3,7 @@ import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { vehicles } from "../data/vehicles";
+import { isDirectRental } from "../data/rentalChannels";
 import {
   calculateQuote,
   checks,
@@ -101,7 +102,7 @@ export function db() {
                   ? 7000
                   : 5500
             : 0,
-          enabled: demo,
+          enabled: demo && isDirectRental(v.id),
           revision: 1,
         } satisfies FleetRate),
       );
@@ -170,9 +171,13 @@ function assertAvailable(
       409,
     );
 }
+function assertDirect(vehicleId: string) {
+  if (!isDirectRental(vehicleId)) throw new PilotError("This vehicle is Turo-only. Book through its Turo listing.", 409);
+}
 export function quote(input: unknown): Quote {
-  const trip = tripSchema.parse(input),
-    s = settings(),
+  const trip = tripSchema.parse(input);
+  assertDirect(trip.vehicleId);
+  const s = settings(),
     rate = config<FleetRate>("rate:" + trip.vehicleId);
   if (
     !vehicles.some((v) => v.id === trip.vehicleId) ||
@@ -231,8 +236,9 @@ export function createRequest(input: unknown) {
       .prepare("SELECT data FROM quotes WHERE id=?")
       .get(payload.quoteId);
     if (!row) throw new PilotError("Please get a new quote.", 409);
-    const q: Quote = JSON.parse(String(row.data)),
-      s = settings(),
+    const q: Quote = JSON.parse(String(row.data));
+    assertDirect(q.vehicleId);
+    const s = settings(),
       rate = config<FleetRate>("rate:" + q.vehicleId);
     if (q.demo !== isDemo())
       throw new PilotError(
@@ -344,6 +350,7 @@ export function adminAction(input: unknown) {
         .run(JSON.stringify({ ...a.settings, revision: s.revision + 1 }));
       audit("settings.updated", "settings");
     } else if (a.action === "rate") {
+      if (a.enabled) assertDirect(a.vehicleId);
       const old = config<FleetRate>("rate:" + a.vehicleId);
       if (old.revision !== a.revision)
         throw new PilotError("Rate changed. Reload before saving.", 409);
@@ -433,6 +440,7 @@ export function adminAction(input: unknown) {
         };
       } else {
         if (a.status === "confirmed") {
+          assertDirect(r.quote.vehicleId);
           if (r.holdUntil <= Date.now())
             throw new PilotError(
               "This request hold expired. Obtain a new quote and request.",
@@ -481,7 +489,7 @@ export function publicState() {
     airportOpen: isDemo() || s.airportApproved,
     rates: rates().map((r) => ({
       vehicleId: r.vehicleId,
-      enabled: r.enabled,
+      enabled: r.enabled && isDirectRental(r.vehicleId),
       dailyCents: r.dailyCents,
     })),
     minimumAge: s.minimumAge,

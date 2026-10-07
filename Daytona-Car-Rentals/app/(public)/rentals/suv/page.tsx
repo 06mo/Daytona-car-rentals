@@ -14,8 +14,8 @@ export default function RentalPage() {
       <h1>A little more room.</h1>
       <p className="page-intro">SUV rentals in Daytona Beach.</p>
       <div className="notice">
-        Choose your dates to check direct-rental pricing. Driver and insurance
-        review is required before confirmation.
+        Follow each car’s channel label: request a direct-eligible car when open,
+        or book a Turo-only car on its listing. Direct requests require approval.
       </div>
       <div className="car-grid">
         {vehicles

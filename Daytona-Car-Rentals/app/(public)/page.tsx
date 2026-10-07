@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { MapPin, MessageCircle, ReceiptText } from "lucide-react";
+import { PeriodChips } from "@/components/journey/PeriodChips";
 import { TripSearch } from "@/components/home/TripSearch";
-import { CarFinder } from "@/components/home/CarFinder";
+import { JourneyLink } from "@/components/journey/JourneyProvider";
 import { VehicleCard } from "@/components/fleet/VehicleCard";
-import { featuredVehicles } from "@/lib/data/vehicles";
+import { directVehicles } from "@/lib/data/rentalChannels";
 export const metadata: Metadata = {
   title: "Daytona Car Rentals · Your trip. Your way.",
   description:
@@ -18,15 +19,20 @@ export default function HomePage() {
         <div className="hero-copy">
           <p className="eyebrow">DAYTONA BEACH, FLORIDA</p>
           <h1>
-            Your Daytona trip.
+            Your days. Your plans.
             <br />
             <em>Your way.</em>
           </h1>
           <p className="hero-description">
-            Choose a car. See your total.
+            Local errands, work weeks or time away.
             <br />
-            Let the good days begin.
+            Find your car for a few days, a week or a monthly term.
           </p>
+          <div className="hero-actions">
+            <JourneyLink className="journey-primary" href="/fleet">Browse cars</JourneyLink>
+            <JourneyLink className="journey-secondary" href="/assistant">Help me choose</JourneyLink>
+          </div>
+          <PeriodChips />
           <div className="hero-location">
             <MapPin size={18} />
             <span>Local pickup · Airport delivery by arrangement</span>
@@ -34,21 +40,21 @@ export default function HomePage() {
         </div>
         <div className="hero-photo">
           <Image
-            src="/images/kia-black-2024.jpeg"
-            alt="Black Kia Carnival from our Daytona fleet"
+            src="/images/corolla-2020.jpeg"
+            alt="2020 Toyota Corolla from our direct-request fleet"
             fill
             priority
             sizes="(max-width: 760px) 100vw, 50vw"
           />
           <span className="photo-label">
-            ROOM FOR THE WHOLE CREW
+            DIRECT RENTAL · SUBJECT TO APPROVAL
             <br />
-            <strong>Kia Carnival · 8 seats</strong>
+            <strong>2020 Toyota Corolla · 5 seats</strong>
           </span>
         </div>
         <div className="hero-search">
           <TripSearch />
-          <CarFinder />
+
         </div>
       </section>
       <section
@@ -58,8 +64,8 @@ export default function HomePage() {
         {[
           {
             icon: ReceiptText,
-            title: "See your total",
-            text: "Rental charges, taxes and fees together.",
+            title: "Plan your term",
+            text: "A few days, a week or up to 30 days at a time.",
           },
           {
             icon: MapPin,
@@ -92,14 +98,14 @@ export default function HomePage() {
           </Link>
         </div>
         <div className="car-grid">
-          {featuredVehicles.map((v) => (
+          {directVehicles.slice(0, 3).map((v) => (
             <VehicleCard key={v.id} vehicle={v} />
           ))}
         </div>
       </section>
       <section id="how-it-works" className="steps-section">
         <div className="container">
-          <p className="eyebrow">THREE SIMPLE SCREENS</p>
+          <p className="eyebrow">DIRECT REQUESTS, PERSONALLY REVIEWED</p>
           <h2>A little planning. A lot of freedom.</h2>
           <div className="steps-grid">
             {[

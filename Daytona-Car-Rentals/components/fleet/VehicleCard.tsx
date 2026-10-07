@@ -1,18 +1,21 @@
 import Image from "next/image";
-import Link from "next/link";
+import { JourneyLink } from "@/components/journey/JourneyProvider";
+import { isDirectRental } from "@/lib/data/rentalChannels";
 import { Users, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TuroVehicle } from "@/lib/data/vehicles";
 export function VehicleCard({
   vehicle,
   className,
+  showFeatures = false,
 }: {
   vehicle: TuroVehicle;
   className?: string;
+  showFeatures?: boolean;
 }) {
   return (
-    <article className={cn("car-card", className)}>
-      <Link className="car-image" href={`/fleet/${vehicle.id}`}>
+    <article data-vehicle={vehicle.id} className={cn("car-card", className)}>
+      <JourneyLink className="car-image" href={`/fleet/${vehicle.id}`}>
         <Image
           src={vehicle.image}
           alt={`${vehicle.color} ${vehicle.make} ${vehicle.model}`}
@@ -20,23 +23,17 @@ export function VehicleCard({
           sizes="(max-width: 640px) 100vw, (max-width: 1000px) 50vw, 33vw"
         />
         <span>
-          {vehicle.category === "economy"
-            ? "Everyday escape"
-            : vehicle.category === "van"
-              ? "Bring everyone"
-              : vehicle.category === "truck"
-                ? "Room to roam"
-                : "Extra room"}
+          {isDirectRental(vehicle.id) ? "Direct rental" : "Book on Turo"}
         </span>
-      </Link>
+      </JourneyLink>
       <div className="car-content">
         <small>
           {vehicle.year} · {vehicle.color}
         </small>
         <h3>
-          <Link href={`/fleet/${vehicle.id}`}>
+          <JourneyLink href={`/fleet/${vehicle.id}`}>
             {vehicle.make} {vehicle.model}
-          </Link>
+          </JourneyLink>
         </h3>
         <div className="car-specs">
           <span>
@@ -48,13 +45,10 @@ export function VehicleCard({
             {vehicle.transmission}
           </span>
         </div>
+        {showFeatures && <p className="comparison-features">{vehicle.features.join(" · ")}</p>}
         <div className="car-actions">
-          <Link href={`/booking?vehicle=${vehicle.id}`} className="text-link">
-            Choose dates
-          </Link>
-          <a href={vehicle.turoUrl} target="_blank" rel="noreferrer">
-            Turo
-          </a>
+          {isDirectRental(vehicle.id) ? <JourneyLink href="/booking" changes={{ vehicle: vehicle.id }} className="text-link">Request this car</JourneyLink> : <a className="text-link" href={vehicle.turoUrl} target="_blank" rel="noreferrer">Book on Turo ↗</a>}
+          <JourneyLink href={`/fleet/${vehicle.id}`} changes={{ vehicle: vehicle.id }}>Details</JourneyLink>
         </div>
       </div>
     </article>

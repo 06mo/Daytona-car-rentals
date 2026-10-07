@@ -2,6 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 const origin = "http://127.0.0.1:3000";
 async function readyImages(page: Page) {
+  await page.waitForLoadState("networkidle");
   await page.evaluate(async () => {
     await Promise.all(
       Array.from(document.images).map(async (image) => {
@@ -21,9 +22,9 @@ test("desktop and mobile homepage are usable without overflow", async ({
 }) => {
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: /Your Daytona trip/ }),
+    page.getByRole("heading", { name: /Your days. Your plans/ }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Find my car" })).toBeVisible();
+  await expect(page.locator(".hero-actions").getByRole("link", { name: "Browse cars" })).toBeVisible();
   await readyImages(page);
   await page.screenshot({
     path: "test-results/desktop-home.png",
@@ -31,7 +32,7 @@ test("desktop and mobile homepage are usable without overflow", async ({
   });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
-  await expect(page.getByRole("button", { name: "Find my car" })).toBeVisible();
+  await expect(page.locator(".hero-actions").getByRole("link", { name: "Browse cars" })).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -51,7 +52,7 @@ test("desktop and mobile homepage are usable without overflow", async ({
 test("three-screen request flow shows totals and never claims confirmation", async ({
   page,
 }) => {
-  await page.goto("/booking?vehicle=corolla-2943051");
+  await page.goto("/booking?vehicle=corolla-3275798");
   await page.getByLabel("Pickup date & time").fill("2030-10-01T10:00");
   await page.getByLabel("Return date & time").fill("2030-10-04T10:00");
   await page.getByRole("button", { name: "See my trip total" }).click();
@@ -90,7 +91,7 @@ test("three-screen request flow shows totals and never claims confirmation", asy
   await page.getByRole("checkbox").check();
   await page.getByRole("button", { name: "Try booking request" }).click();
   await expect(
-    page.getByRole("heading", { name: "That’s the flow." }),
+    page.getByRole("heading", { name: "Preview request complete." }),
   ).toBeVisible();
   await expect(page.getByText(/No personal details were saved/)).toBeVisible();
 });
@@ -157,6 +158,7 @@ test("authenticated operator can change a rate and see readiness gates", async (
   page,
 }) => {
   await page.goto("/admin");
+  await page.waitForLoadState("networkidle");
   await page.getByLabel("Admin password").fill(process.env.DCR_E2E_PASSWORD!);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(
@@ -181,26 +183,25 @@ test("authenticated operator can change a rate and see readiness gates", async (
   await page
     .getByRole("button", { name: "Fleet & rates", exact: true })
     .click();
-  const row = page.locator("form.rate-row").first();
+  const row = page.locator("form.rate-row").filter({ has: page.locator("#corolla-3275798-daily") });
   await row.getByLabel("Daily rate ($)").fill("59.00");
   await row.getByRole("button", { name: "Save rate" }).click();
   await expect(page.getByRole("status")).toContainText("Saved.");
-  const state = await (await page.request.get("/api/admin/state")).json();
-  expect(state.rates[0].dailyCents).toBe(5900);
+  // Use the browser context: Chromium trusts loopback for Secure cookies, unlike APIRequestContext over HTTP.
+  const state = await page.evaluate(async () => (await fetch("/api/admin/state")).json());
+  expect(state.rates.find((r: {vehicleId:string}) => r.vehicleId === "corolla-3275798").dailyCents).toBe(5900);
   const pending = state.reservations.find(
     (r: { status: string }) => r.status === "pending",
   );
-  const result = await page.request.post("/api/admin/state", {
-    headers: { Origin: origin },
-    data: {
-      action: "status",
-      id: pending.id,
-      revision: pending.revision,
-      status: "confirmed",
-    },
-  });
-  expect(result.status()).toBe(409);
-  expect((await result.json()).error).toContain("release check");
+  const result = await page.evaluate(async ({id, revision}) => {
+    const response = await fetch("/api/admin/state", {
+      method: "POST", headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({action:"status",id,revision,status:"confirmed"}),
+    });
+    return {status: response.status, data: await response.json()};
+  }, {id: pending.id, revision: pending.revision});
+  expect(result.status).toBe(409);
+  expect(result.data.error).toContain("release check");
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(
     page.getByRole("button", { name: "Sign in", exact: true }),

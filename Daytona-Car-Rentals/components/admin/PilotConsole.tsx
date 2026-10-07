@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { vehicles } from "@/lib/data/vehicles";
+import { isDirectRental } from "@/lib/data/rentalChannels";
 import {
   checks,
   money,
@@ -71,8 +72,8 @@ function RateRow({ rate, save }: { rate: FleetRate; save: Mutation }) {
         required
       />
       <label className="checkbox-row">
-        <input name="enabled" type="checkbox" defaultChecked={rate.enabled} />
-        Direct eligible
+        <input name="enabled" type="checkbox" disabled={!isDirectRental(v.id)} defaultChecked={isDirectRental(v.id) && rate.enabled} />
+        {isDirectRental(v.id) ? "Enable direct requests" : "Turo-only"}
       </label>
       <Button type="submit" variant="outline">
         Save rate
@@ -627,7 +628,7 @@ export function PilotConsole() {
               <div className="notice">
                 <CarFront />
                 <span>
-                  Only explicitly enabled cars with a positive rate are offered
+                  Only the five direct-eligible cars, explicitly enabled with a positive rate, are offered
                   for direct rental. Verify eligibility and actual fleet details
                   before enabling.
                 </span>

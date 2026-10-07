@@ -9,6 +9,7 @@ export const tripSchema = z.object({
   start: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/),
   end: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/),
   location: z.enum(["local", "airport"]),
+  period: z.enum(["", "short", "weekly", "monthly"]).optional(),
 });
 export type TripInput = z.infer<typeof tripSchema>;
 export const requestSchema = z.object({
@@ -95,11 +96,13 @@ export type CalendarBlock = TripInput & {
   reason: string;
 };
 
+export class TripDateError extends Error {}
+
 // Interpret wall-clock dates in Daytona, not in the server/browser's timezone.
 // Reject missing and repeated DST wall times instead of silently choosing one.
 export function daytonaTime(value: string): number {
   const parts = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
-  if (!parts) throw new Error("Enter a valid date and time.");
+  if (!parts) throw new TripDateError("Enter a valid date and time.");
   const [, y, m, d, h, minute] = parts.map(Number);
   const civil = Date.UTC(y, m - 1, d, h, minute);
   const formatter = new Intl.DateTimeFormat("sv-SE", {
@@ -115,7 +118,7 @@ export function daytonaTime(value: string): number {
     .map((offset) => civil + offset * 3600000)
     .filter((time) => formatter.format(time).replace(" ", "T") === value);
   if (matches.length !== 1)
-    throw new Error(
+    throw new TripDateError(
       "That local time is invalid or occurs twice during a clock change. Choose another time.",
     );
   return matches[0];
@@ -124,12 +127,12 @@ export function tripTimes(trip: TripInput, now = Date.now()) {
   const startMs = daytonaTime(trip.start),
     endMs = daytonaTime(trip.end);
   if (startMs < now + 2 * 3600000)
-    throw new Error("Please allow at least two hours before pickup.");
-  if (endMs <= startMs) throw new Error("Return must be after pickup.");
+    throw new TripDateError("Please allow at least two hours before pickup.");
+  if (endMs <= startMs) throw new TripDateError("Return must be after pickup.");
   const civil = (s: string) => Date.parse(s + "Z");
   const days = Math.ceil((civil(trip.end) - civil(trip.start)) / 86400000);
   if (days < 1 || days > 30)
-    throw new Error("Pilot rentals are limited to 1–30 rental days.");
+    throw new TripDateError("Pilot rentals are limited to 1–30 rental days.");
   return { startMs, endMs, days };
 }
 export function calculateQuote(

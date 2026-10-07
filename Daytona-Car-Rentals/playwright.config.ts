@@ -13,10 +13,11 @@ export default defineConfig({
   use: {
     baseURL: "http://127.0.0.1:3000",
     headless: true,
+    launchOptions: { executablePath: process.env.CHROMIUM_BIN || undefined },
     viewport: { width: 1440, height: 1000 },
   },
   webServer: {
-    command: "npm run dev -- --hostname 127.0.0.1",
+    command: process.env.DCR_E2E_PRODUCTION === "true" ? "npm run start -- --hostname 127.0.0.1" : "npm run dev -- --hostname 127.0.0.1",
     url: "http://127.0.0.1:3000",
     reuseExistingServer: false,
     timeout: 120000,

@@ -27,9 +27,15 @@ export function Footer() {
           </a>
         </div>
         <div className="footer-links">
+          <Link href="/about">About Daytona</Link>
+          <Link href="/my-trip">Trip support</Link>
+          <Link href="/assistant">Help me choose</Link>
           <Link href="/contact">Pickup & help</Link>
           <Link href="/terms">Rental requirements</Link>
           <Link href="/privacy">Privacy</Link>
+          <details><summary>Rental guides</summary>
+            {["daytona-beach-airport", "suv", "van", "luxury", "bike-week", "daytona-500", "spring-break"].map((slug) => <Link key={slug} href={`/rentals/${slug}`}>{slug.replaceAll("-", " ")}</Link>)}
+          </details>
           <a href={TURO_HOST_URL} target="_blank" rel="noreferrer">
             Prefer Turo? Book there
           </a>

@@ -1,64 +1,25 @@
 "use client";
 import { useState } from "react";
-import Link from "next/link";
-import { Input } from "@/components/ui/Input";
-import { Button } from "@/components/ui/Button";
-import { vehicles } from "@/lib/data/vehicles";
+import { VehicleCard } from "@/components/fleet/VehicleCard";
+import { rentalFleet } from "@/lib/data/rentalChannels";
+import { JourneyFields } from "@/components/journey/JourneyFields";
+import { JourneyLink, useJourney } from "@/components/journey/JourneyProvider";
 export function CarFinder() {
-  const [need, setNeed] = useState(""),
-    [searched, setSearched] = useState(false);
-  const van = /family|group|eight|8|seven|7|van|luggage/i.test(need),
-    truck = /truck|pickup truck/i.test(need),
-    suv = /suv|space/i.test(need);
-  const matches = vehicles
-    .filter(
-      (v) =>
-        v.category ===
-        (van ? "van" : truck ? "truck" : suv ? "suv" : "economy"),
-    )
-    .slice(0, 2);
-  return (
-    <div className="finder">
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          setSearched(true);
-        }}
-      >
-        <Input
-          id="car-needs"
-          label="Need help choosing?"
-          placeholder="An eight-seat van for a family weekend"
-          value={need}
-          onChange={(e) => {
-            setNeed(e.target.value);
-            setSearched(false);
-          }}
-          required
-          maxLength={200}
-        />
-        <Button variant="outline" type="submit">
-          Find a fit
-        </Button>
-      </form>
-      {searched && (
-        <div className="finder-results" aria-live="polite">
-          <p>
-            {van
-              ? "The Carnival seats eight. Check luggage space with us before booking."
-              : "These cars may fit your trip. Choose dates to check pricing."}
-          </p>
-          {matches.map((v) => (
-            <Link key={v.id} href={`/booking?vehicle=${v.id}`}>
-              {v.make} {v.model} · {v.seats} seats
-            </Link>
-          ))}
-          <small>
-            This guided selector suggests cars; it does not confirm availability
-            or coverage.
-          </small>
-        </div>
-      )}
+  const { update } = useJourney();
+  const [kind, setKind] = useState("suv");
+  const matches = rentalFleet.filter((v) => v.category === kind).slice(0, 2);
+  return <div className="guided-selection">
+    <div className="filter-tabs" aria-label="Choose your needs">
+      <button onClick={() => { update({ period: "weekly" }); setKind("economy"); }}>Weekly transportation</button>
+      <button onClick={() => { update({ period: "monthly" }); setKind("economy"); }}>Monthly transportation</button>
+      <button aria-pressed={kind === "suv"} onClick={() => setKind("suv")}>Compare SUVs</button>
+      <button aria-pressed={kind === "van"} onClick={() => setKind("van")}>Room for a group</button>
     </div>
-  );
+    <h2>{kind === "suv" ? "Santa Fe Sport or EcoSport?" : kind === "van" ? "Traveling together" : "Everyday transportation"}</h2>
+    <p>{kind === "suv" ? "Both seat five. Santa Fe Sport: AWD and a sunroof. EcoSport: compact size and a roof rack. Confirm luggage space with us." : "Compare seating and vehicle details. Your selected rental period and dates stay with you."}</p>
+    <div className="comparison-grid">{matches.map((v) => <VehicleCard key={v.id} vehicle={v} showFeatures />)}</div>
+    <JourneyFields compact />
+    <p className="small-note">Direct requests need operator approval. Any alternative vehicle requires your explicit acceptance.</p>
+    <JourneyLink className="text-link" href="/fleet">Browse all cars</JourneyLink>
+  </div>;
 }
