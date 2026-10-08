@@ -1,6 +1,4 @@
-import { DatabaseSync } from "node:sqlite";
-import { mkdirSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 import { vehicles } from "../data/vehicles";
 import { isDirectRental } from "../data/rentalChannels";
@@ -20,133 +18,39 @@ import {
 } from "./model";
 import { z } from "zod";
 
-export class PilotError extends Error {
-  constructor(
-    message: string,
-    public status = 400,
-  ) {
-    super(message);
-  }
+export { PilotError } from "./errors";
+import { PilotError } from "./errors";
+import { query, transaction, isDemo } from "./database";
+export { isDemo } from "./database";
+async function read<T>(table: "reservations" | "blocks"): Promise<T[]> {
+  return (await query(`SELECT data FROM dcr_private.${table}`)).rows.map(row => row.data as T);
 }
-export const isDemo = () => process.env.DCR_DEMO_MODE === "true";
-let connection: DatabaseSync | undefined;
-export function db() {
-  if (connection) {
-    const mode = connection
-      .prepare("SELECT data FROM config WHERE id='environment'")
-      .get();
-    if (mode?.data !== (isDemo() ? "demo" : "live"))
-      throw new PilotError(
-        "Use a separate database for live rentals and preview data.",
-        503,
-      );
-    return connection;
-  }
-  const file = resolve(process.env.DCR_DATABASE_PATH || "data/pilot.sqlite");
-  mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
-  connection = new DatabaseSync(file);
-  connection.exec(`PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;
-    CREATE TABLE IF NOT EXISTS config(id TEXT PRIMARY KEY, data TEXT NOT NULL);
-    CREATE TABLE IF NOT EXISTS quotes(id TEXT PRIMARY KEY, data TEXT NOT NULL);
-    CREATE TABLE IF NOT EXISTS reservations(id TEXT PRIMARY KEY, request_key TEXT UNIQUE NOT NULL, payload_hash TEXT NOT NULL, data TEXT NOT NULL);
-    CREATE TABLE IF NOT EXISTS blocks(id TEXT PRIMARY KEY, data TEXT NOT NULL);
-    CREATE TABLE IF NOT EXISTS sessions(hash TEXT PRIMARY KEY, expires INTEGER NOT NULL);
-    CREATE TABLE IF NOT EXISTS attempts(id TEXT PRIMARY KEY, count INTEGER NOT NULL, reset INTEGER NOT NULL);
-    CREATE TABLE IF NOT EXISTS audit(id TEXT PRIMARY KEY, at INTEGER NOT NULL, action TEXT NOT NULL, reference TEXT NOT NULL);`);
-  const demo = isDemo();
-  connection
-    .prepare("INSERT OR IGNORE INTO config VALUES('environment',?)")
-    .run(demo ? "demo" : "live");
-  if (
-    connection.prepare("SELECT data FROM config WHERE id='environment'").get()
-      ?.data !== (demo ? "demo" : "live")
-  )
-    throw new PilotError(
-      "Use a separate database for live rentals and preview data.",
-      503,
-    );
-  connection
-    .prepare("INSERT OR IGNORE INTO config VALUES('settings',?)")
-    .run(
-      JSON.stringify({
-        taxBps: demo ? 650 : 0,
-        surchargeCents: 200,
-        deliveryCents: demo ? 3500 : 0,
-        depositCents: demo ? 30000 : 0,
-        bufferMinutes: 120,
-        policyApproved: false,
-        agreementApproved: false,
-        taxApproved: false,
-        airportApproved: false,
-        requestsEnabled: false,
-        policyReference: "",
-        agreementVersion: "",
-        mileage: demo ? "150 miles per rental day (example)" : "",
-        minimumAge: demo ? 25 : 0,
-        revision: 1,
-      } satisfies PilotSettings),
-    );
-  for (const v of vehicles)
-    connection
-      .prepare("INSERT OR IGNORE INTO config VALUES(?,?)")
-      .run(
-        "rate:" + v.id,
-        JSON.stringify({
-          vehicleId: v.id,
-          dailyCents: demo
-            ? v.category === "van"
-              ? 9500
-              : v.category === "truck"
-                ? 8500
-                : v.category === "suv"
-                  ? 7000
-                  : 5500
-            : 0,
-          enabled: demo && isDirectRental(v.id),
-          revision: 1,
-        } satisfies FleetRate),
-      );
-  return connection;
-}
-function read<T>(table: string): T[] {
-  return db()
-    .prepare(`SELECT data FROM ${table}`)
-    .all()
-    .map((row) => JSON.parse(String(row.data)) as T);
-}
-function config<T>(id: string): T {
-  const row = db().prepare("SELECT data FROM config WHERE id=?").get(id);
-  if (!row) throw new PilotError("Configuration missing.", 503);
-  return JSON.parse(String(row.data));
+async function config<T>(id: string): Promise<T> {
+  const row = (await query("SELECT data FROM dcr_private.config WHERE id=$1", [id])).rows[0];
+  if (!row) throw new PilotError("Configuration missing. Initialize the database environment.", 503);
+  return row.data as T;
 }
 export const settings = () => config<PilotSettings>("settings");
-export const rates = () =>
-  vehicles.map((v) => config<FleetRate>("rate:" + v.id));
+export const rates = async () => {
+  const rows = (await query("SELECT data FROM dcr_private.config WHERE id LIKE 'rate:%'")).rows;
+  return vehicles.map(v => {
+    const rate = rows.find(row => row.data.vehicleId === v.id)?.data as FleetRate | undefined;
+    if (!rate) throw new PilotError("Vehicle rate configuration missing.", 503);
+    return rate;
+  });
+};
 export const reservations = () => read<Reservation>("reservations");
 export const blocks = () => read<CalendarBlock>("blocks");
-function transaction<T>(fn: () => T): T {
-  db().exec("BEGIN IMMEDIATE");
-  try {
-    const result = fn();
-    db().exec("COMMIT");
-    return result;
-  } catch (error) {
-    db().exec("ROLLBACK");
-    throw error;
-  }
+async function audit(action: string, reference: string) {
+  await query("INSERT INTO dcr_private.audit VALUES($1,$2,$3,$4)", [randomUUID(), Date.now(), action, reference]);
 }
-function audit(action: string, reference: string) {
-  db()
-    .prepare("INSERT INTO audit VALUES(?,?,?,?)")
-    .run(randomUUID(), Date.now(), action, reference);
-}
-function assertAvailable(
+async function assertAvailable(
   trip: { vehicleId: string; startMs: number; endMs: number },
   exclude?: string,
 ) {
-  const s = settings(),
+  const s = await settings(),
     now = Date.now();
-  const conflict = reservations().some(
+  const conflict = (await reservations()).some(
     (r) =>
       r.id !== exclude &&
       r.quote.vehicleId === trip.vehicleId &&
@@ -160,7 +64,7 @@ function assertAvailable(
         s.bufferMinutes,
       ),
   );
-  const blocked = blocks().some(
+  const blocked = (await blocks()).some(
     (b) =>
       b.vehicleId === trip.vehicleId &&
       overlaps(trip.startMs, trip.endMs, b.startMs, b.endMs, s.bufferMinutes),
@@ -174,11 +78,12 @@ function assertAvailable(
 function assertDirect(vehicleId: string) {
   if (!isDirectRental(vehicleId)) throw new PilotError("This vehicle is Turo-only. Book through its Turo listing.", 409);
 }
-export function quote(input: unknown): Quote {
+export async function quote(input: unknown): Promise<Quote> {
+  return transaction(async () => {
   const trip = tripSchema.parse(input);
   assertDirect(trip.vehicleId);
-  const s = settings(),
-    rate = config<FleetRate>("rate:" + trip.vehicleId);
+  const s = await settings(),
+    rate = await config<FleetRate>("rate:" + trip.vehicleId);
   if (
     !vehicles.some((v) => v.id === trip.vehicleId) ||
     !rate.enabled ||
@@ -203,14 +108,13 @@ export function quote(input: unknown): Quote {
     id: randomUUID(),
     demo: isDemo(),
   };
-  assertAvailable(q);
-  db()
-    .prepare("DELETE FROM quotes WHERE json_extract(data,'$.expiresAt') < ?")
-    .run(Date.now() - 86400000);
-  db().prepare("INSERT INTO quotes VALUES(?,?)").run(q.id, JSON.stringify(q));
+  await assertAvailable(q);
+  await query("DELETE FROM dcr_private.quotes WHERE (data->>'expiresAt')::bigint < $1", [Date.now() - 86400000]);
+  await query("INSERT INTO dcr_private.quotes VALUES($1,$2)", [q.id, q]);
   return q;
+  });
 }
-export function createRequest(input: unknown) {
+export async function createRequest(input: unknown) {
   const payload = requestSchema.parse(input);
   // The demo never persists entered contact details. It stores synthetic records only.
   const customer = isDemo()
@@ -223,23 +127,19 @@ export function createRequest(input: unknown) {
   const hash = createHash("sha256")
     .update(JSON.stringify({ quoteId: payload.quoteId, ...customer }))
     .digest("hex");
-  return transaction(() => {
-    const previous = db()
-      .prepare("SELECT data,payload_hash FROM reservations WHERE request_key=?")
-      .get(payload.idempotencyKey);
+  return transaction(async () => {
+    const previous = (await query("SELECT data,payload_hash FROM dcr_private.reservations WHERE request_key=$1", [payload.idempotencyKey])).rows[0];
     if (previous) {
       if (previous.payload_hash !== hash)
         throw new PilotError("This request key has already been used.", 409);
-      return JSON.parse(String(previous.data)) as Reservation;
+      return previous.data as Reservation;
     }
-    const row = db()
-      .prepare("SELECT data FROM quotes WHERE id=?")
-      .get(payload.quoteId);
+    const row = (await query("SELECT data FROM dcr_private.quotes WHERE id=$1", [payload.quoteId])).rows[0];
     if (!row) throw new PilotError("Please get a new quote.", 409);
-    const q: Quote = JSON.parse(String(row.data));
+    const q: Quote = row.data;
     assertDirect(q.vehicleId);
-    const s = settings(),
-      rate = config<FleetRate>("rate:" + q.vehicleId);
+    const s = await settings(),
+      rate = await config<FleetRate>("rate:" + q.vehicleId);
     if (q.demo !== isDemo())
       throw new PilotError(
         "This quote belongs to a different environment.",
@@ -262,7 +162,7 @@ export function createRequest(input: unknown) {
       throw new PilotError("Direct requests are currently closed.", 503);
     if (q.startMs < Date.now() + 2 * 3600000)
       throw new PilotError("Pickup is too soon. Choose a later time.", 409);
-    assertAvailable(q);
+    await assertAvailable(q);
     const now = Date.now();
     const r: Reservation = {
       id: randomUUID(),
@@ -280,10 +180,8 @@ export function createRequest(input: unknown) {
       revision: 1,
       demo: isDemo(),
     };
-    db()
-      .prepare("INSERT INTO reservations VALUES(?,?,?,?)")
-      .run(r.id, payload.idempotencyKey, hash, JSON.stringify(r));
-    audit("request.created", r.id);
+    await query("INSERT INTO dcr_private.reservations VALUES($1,$2,$3,$4)", [r.id, payload.idempotencyKey, hash, r]);
+    await audit("request.created", r.id);
     return r;
   });
 }
@@ -334,40 +232,26 @@ const adminSchema = z.discriminatedUnion("action", [
     status: z.enum(["confirmed", "cancelled"]),
   }),
 ]);
-export function adminAction(input: unknown) {
+export async function adminAction(input: unknown) {
   const a = adminSchema.parse(input);
-  return transaction(() => {
+  return transaction(async () => {
     if (a.action === "settings") {
-      const s = settings();
+      const s = await settings();
       if (s.revision !== a.settings.revision)
         throw new PilotError("Settings changed. Reload before saving.", 409);
       if (a.settings.requestsEnabled && !launchReady(a.settings))
         throw new PilotError(
           "Policy, agreement, taxes, minimum age, and mileage must be configured before opening requests.",
         );
-      db()
-        .prepare("UPDATE config SET data=? WHERE id='settings'")
-        .run(JSON.stringify({ ...a.settings, revision: s.revision + 1 }));
-      audit("settings.updated", "settings");
+      await query("UPDATE dcr_private.config SET data=$1 WHERE id='settings'", [{ ...a.settings, revision: s.revision + 1 }]);
+      await audit("settings.updated", "settings");
     } else if (a.action === "rate") {
       if (a.enabled) assertDirect(a.vehicleId);
-      const old = config<FleetRate>("rate:" + a.vehicleId);
-      if (old.revision !== a.revision)
-        throw new PilotError("Rate changed. Reload before saving.", 409);
-      if (a.enabled && a.dailyCents <= 0)
-        throw new PilotError("An enabled car needs a positive daily rate.");
-      db()
-        .prepare("UPDATE config SET data=? WHERE id=?")
-        .run(
-          JSON.stringify({
-            vehicleId: a.vehicleId,
-            dailyCents: a.dailyCents,
-            enabled: a.enabled,
-            revision: old.revision + 1,
-          }),
-          "rate:" + a.vehicleId,
-        );
-      audit("rate.updated", a.vehicleId);
+      const old = await config<FleetRate>("rate:" + a.vehicleId);
+      if (old.revision !== a.revision) throw new PilotError("Rate changed. Reload before saving.", 409);
+      if (a.enabled && a.dailyCents <= 0) throw new PilotError("An enabled car needs a positive daily rate.");
+      await query("UPDATE dcr_private.config SET data=$1 WHERE id=$2", [{vehicleId:a.vehicleId,dailyCents:a.dailyCents,enabled:a.enabled,revision:old.revision+1}, "rate:"+a.vehicleId]);
+      await audit("rate.updated", a.vehicleId);
     } else if (a.action === "block") {
       if (!vehicles.some((v) => v.id === a.trip.vehicleId))
         throw new PilotError("Vehicle not found.", 404);
@@ -381,8 +265,9 @@ export function adminAction(input: unknown) {
         throw new PilotError(
           "A block needs a valid start and future end, within one year.",
         );
+      const currentSettings = await settings();
       if (
-        reservations().some(
+        (await reservations()).some(
           (r) =>
             r.status === "confirmed" &&
             r.quote.vehicleId === a.trip.vehicleId &&
@@ -391,7 +276,7 @@ export function adminAction(input: unknown) {
               endMs,
               r.quote.startMs,
               r.quote.endMs,
-              settings().bufferMinutes,
+              currentSettings.bufferMinutes,
             ),
         )
       )
@@ -406,17 +291,14 @@ export function adminAction(input: unknown) {
         endMs,
         reason: a.reason,
       };
-      db()
-        .prepare("INSERT INTO blocks VALUES(?,?)")
-        .run(b.id, JSON.stringify(b));
-      audit("calendar.blocked", b.id);
+      await query("INSERT INTO dcr_private.blocks VALUES($1,$2)", [b.id,b]);
+      await audit("calendar.blocked", b.id);
     } else if (a.action === "removeBlock") {
-      if (!db().prepare("SELECT id FROM blocks WHERE id=?").get(a.id))
-        throw new PilotError("Block not found.", 404);
-      db().prepare("DELETE FROM blocks WHERE id=?").run(a.id);
-      audit("calendar.unblocked", a.id);
+      const result = await query("DELETE FROM dcr_private.blocks WHERE id=$1 RETURNING id", [a.id]);
+      if (!result.rowCount) throw new PilotError("Block not found.", 404);
+      await audit("calendar.unblocked", a.id);
     } else {
-      const r = reservations().find((r) => r.id === a.id);
+      const r = (await reservations()).find(r => r.id === a.id);
       if (!r) throw new PilotError("Request not found.", 404);
       if (r.revision !== a.revision)
         throw new PilotError(
@@ -462,32 +344,31 @@ export function adminAction(input: unknown) {
             );
           if (
             !isDemo() &&
-            (!launchReady(settings()) ||
-              (r.quote.location === "airport" && !settings().airportApproved))
+            (!launchReady(await settings()) ||
+              (r.quote.location === "airport" && !(await settings()).airportApproved))
           )
             throw new PilotError("Launch approvals are incomplete.", 409);
-          assertAvailable(r.quote, r.id);
+          await assertAvailable(r.quote, r.id);
         }
         r.status = a.status;
       }
       r.revision++;
-      db()
-        .prepare("UPDATE reservations SET data=? WHERE id=?")
-        .run(JSON.stringify(r), r.id);
-      audit(
+      await query("UPDATE dcr_private.reservations SET data=$1 WHERE id=$2", [r,r.id]);
+      await audit(
         a.action === "review" ? "review." + a.check : "request." + a.status,
         r.id,
       );
     }
   });
 }
-export function publicState() {
-  const s = settings();
+export async function publicState() {
+  return transaction(async () => {
+  const s = await settings();
   return {
     demo: isDemo(),
     open: isDemo() || launchReady(s),
     airportOpen: isDemo() || s.airportApproved,
-    rates: rates().map((r) => ({
+    rates: (await rates()).map((r) => ({
       vehicleId: r.vehicleId,
       enabled: r.enabled && isDirectRental(r.vehicleId),
       dailyCents: r.dailyCents,
@@ -495,18 +376,13 @@ export function publicState() {
     minimumAge: s.minimumAge,
     mileage: s.mileage,
   };
+  });
 }
-export function adminState() {
-  return {
-    demo: isDemo(),
-    settings: settings(),
-    rates: rates(),
-    reservations: reservations().sort((a, b) => b.createdAt - a.createdAt),
-    blocks: blocks(),
-    audit: db()
-      .prepare(
-        "SELECT at,action,reference FROM audit ORDER BY at DESC LIMIT 30",
-      )
-      .all(),
-  };
+export async function adminState() {
+  return transaction(async () => ({
+    demo: isDemo(), settings: await settings(), rates: await rates(),
+    reservations: (await reservations()).sort((a,b) => b.createdAt-a.createdAt),
+    blocks: await blocks(),
+    audit: (await query<{at:string;action:string;reference:string}>("SELECT at,action,reference FROM dcr_private.audit ORDER BY at DESC LIMIT 30")).rows.map(row => ({...row,at:Number(row.at)})),
+  }));
 }

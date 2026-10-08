@@ -5,8 +5,8 @@ export const runtime = "nodejs";
 export async function POST(request: Request) {
   try {
     const input = await body(request);
-    limit("requests", 100, 3600000);
-    const r = createRequest(input);
+    await limit("requests", 100, 3600000);
+    const r = await createRequest(input);
     return NextResponse.json(
       { id: r.id, status: r.status, demo: r.demo, holdUntil: r.holdUntil },
       { status: 201, headers: { "Cache-Control": "no-store" } },

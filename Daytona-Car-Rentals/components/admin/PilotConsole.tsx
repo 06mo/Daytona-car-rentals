@@ -24,7 +24,7 @@ import {
   type Reservation,
 } from "@/lib/pilot/model";
 import type { adminState } from "@/lib/pilot/store";
-type State = ReturnType<typeof adminState>;
+type State = Awaited<ReturnType<typeof adminState>>;
 type Mutation = (payload: unknown) => Promise<void>;
 const checkLabels = {
   license: "License and identity",

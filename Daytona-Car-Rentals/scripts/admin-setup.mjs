@@ -46,7 +46,7 @@ const salt = randomBytes(16).toString("hex"),
 const path = resolve(".env.local");
 let text = existsSync(path)
   ? readFileSync(path, "utf8")
-  : "DCR_DEMO_MODE=true\nDCR_DATABASE_PATH=data/preview.sqlite\n";
+  : "DCR_DEMO_MODE=true\nDCR_DATABASE_URL=\nDCR_SITE_ORIGIN=http://localhost:3000\n";
 text = text.replace(/^DCR_ADMIN_PASSWORD_HASH=.*\n?/gm, "");
 writeFileSync(
   path,

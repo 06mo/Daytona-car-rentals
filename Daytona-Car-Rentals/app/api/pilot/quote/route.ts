@@ -5,7 +5,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export async function GET() {
   try {
-    return NextResponse.json(publicState(), {
+    return NextResponse.json(await publicState(), {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (e) {
@@ -15,8 +15,8 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const input = await body(request);
-    limit("quotes", 500, 3600000);
-    return NextResponse.json(quote(input), {
+    await limit("quotes", 500, 3600000);
+    return NextResponse.json(await quote(input), {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (e) {

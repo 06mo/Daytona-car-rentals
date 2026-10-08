@@ -8,24 +8,31 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx tests/pilot.test.ts && node --import tsx tests/live.test.ts",
+    "test": "node --conditions=react-server --import tsx tests/pilot.test.ts && node --conditions=react-server --import tsx tests/live.test.ts && node --conditions=react-server --import tsx tests/postgres.test.ts && node --conditions=react-server --import tsx tests/backup.test.ts",
     "test:e2e": "playwright test",
-    "admin:setup": "node scripts/admin-setup.mjs"
+    "admin:setup": "node scripts/admin-setup.mjs",
+    "db:migrate": "node --import tsx scripts/db.ts migrate",
+    "db:seed": "node --import tsx scripts/db.ts seed-demo",
+    "db:init-live": "node --import tsx scripts/db.ts init-live"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
+    "@vercel/functions": "3.9.11",
     "clsx": "^2.1.1",
     "lucide-react": "^1.7.0",
     "next": "^15.0.0",
+    "pg": "^8.23.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.89.0",
+    "server-only": "^0.0.1",
     "tailwind-merge": "^3.5.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
     "@types/node": "^22.0.0",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "autoprefixer": "^10.4.20",

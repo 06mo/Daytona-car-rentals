@@ -1,5 +1,7 @@
 # Approved custom pilot
 
+> Persistence update: the migration branch now uses Postgres. Follow [Postgres setup](docs/postgres-backend.md) instead of the historical SQLite setup/storage instructions below. Existing owner-review and launch safeguards still apply.
+
 Approved October 3, 2026: coastal identity; Choose / Verify / Review; custom backend; reviewed direct-rental requests; manual reconciliation with Turo. HQ and Rent Centric are not dependencies.
 
 ## What works

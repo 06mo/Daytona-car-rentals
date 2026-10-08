@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     await requireAdmin();
-    return NextResponse.json(adminState(), {
+    return NextResponse.json(await adminState(), {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (e) {
@@ -16,8 +16,8 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     await requireAdmin();
-    adminAction(await body(request));
-    return NextResponse.json(adminState(), {
+    await adminAction(await body(request));
+    return NextResponse.json(await adminState(), {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (e) {
