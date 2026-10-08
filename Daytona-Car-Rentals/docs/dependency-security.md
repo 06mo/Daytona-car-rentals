@@ -1,0 +1,14 @@
+# Dependency security pass — 2026-10-08
+
+Before any hosted website preview, the Next.js dependency was pinned from 15.5.14 to **15.5.27** within the existing major version. The current npm advisory ranges identify the earlier release as vulnerable to critical image-optimization RCE and other server-component/cache issues. This upgrade removes the direct Next.js advisories reported by the audit. References: [Next.js advisory list](https://github.com/vercel/next.js/security/advisories), [September cache advisory](https://github.com/vercel/next.js/security/advisories/GHSA-mcj8-r9mp-w47p). The audit snapshot, rather than the incomplete patched-version placeholders on that advisory page, records the exact applicable version ranges.
+
+Targeted transitive updates cover sharp/libvips, browserslist, baseline-browser-mapping, nanoid, source-map-js and PostCSS. Two explicit overrides avoid an unrelated Next.js/Tailwind major migration:
+
+- `next > postcss: 8.5.29`: replaces Next's pinned vulnerable 8.4.31 dependency with the patched version of the same major API. The direct build dependency resolves to the same version.
+- `postcss-selector-parser: 7.1.6`: patched selector parsing, including the Tailwind/postcss-nested consumers. This crosses the parser's major boundary, so production CSS compilation and existing Chromium layout/journey regressions are required. No application styles or Tailwind configuration were changed.
+
+Current `npm audit --omit=dev` reports **zero vulnerabilities**. Full audit reports **five high entries**: braces and its dependent micromatch, fast-glob, chokidar and Tailwind. These share the same [unpatched braces recursion advisory](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm); npm's suggested removal is a Tailwind 4 migration, not an available braces security patch. Do not use `npm audit fix --force` to perform an unreviewed visual/build-system migration.
+
+Exposure assessment: these packages are development dependencies used for the build/watch file scanner. This project supplies three fixed shallow source globs in `tailwind.config.ts`; application routes do not pass customer input to braces/micromatch/PostCSS. No customer-controlled glob/CSS build interface was found. This is a residual toolchain risk, not a claim that the vulnerable package is fixed. Keep builds restricted to trusted source/configuration, do not expose the development server publicly, and follow up when a patched dependency or separately tested Tailwind migration is available. Audit results are a point-in-time dependency assessment, not a security certification.
+
+Evidence is outside Git at `/projects/daytona-handoff/hosted-development/`: audit-before/after/final/production JSON, local-tests.log, typecheck-final.log, build-final.log, browser.log and dependency-tree.txt. Hosted database validation is separate from these local regression results. No hosted website was deployed.
