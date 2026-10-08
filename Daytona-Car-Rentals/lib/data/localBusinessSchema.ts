@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 
 import type { FAQItem } from "@/components/landing/LandingFAQ";
 
-export const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://daytonacarrentals.com";
+// Protected Preview bootstrap has no known origin yet. Keep metadata relative
+// until the explicit branch URL is configured; never advertise production there.
+export const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ??
+  (process.env.VERCEL_ENV === "preview" ? "" : "https://daytonacarrentals.com");
 
 export const localBusinessSchema = {
   "@context": "https://schema.org",

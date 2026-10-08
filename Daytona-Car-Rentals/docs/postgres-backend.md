@@ -29,7 +29,7 @@ Set its strong password privately using `psql`'s `\password dcr_runtime` or the 
 
 ## Environment setup
 
-Use separate projects/databases **and distinct credentials** for development, Vercel Preview and Production. `.env.example` and `.env.local.example` contain variable names/comments only where secrets belong.
+Use separate projects/databases **and distinct credentials** for development, Vercel Preview and Production. Current owner-approved mapping: development = preserved local loopback Postgres demo; hosted Preview = `daytona-rentals-dev` (project `moxcovrhondqpjykslkh`) exclusively, with its existing records retained. `mts-ag-services` is untouched/out of scope. This is a reassignment of the previously tested hosted development project, not a reset or a new seed. `.env.example` and `.env.local.example` contain variable names/comments only where secrets belong.
 
 - `DCR_DATABASE_URL`: server runtime URL. For Vercel use Supabase **shared transaction pooler**, normally port 6543. Copy the exact host and `[ROLE].[PROJECT-REF]` username from the Connect panel; do not derive the hostname. Percent-encode reserved password characters.
 - `DCR_DATABASE_CA`: optional trusted CA PEM if needed; certificate verification remains enabled. Literal `\n` is accepted. SSL options in the URI cannot disable verification.
