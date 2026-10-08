@@ -55,13 +55,16 @@ export default function PrivacyPage() {
       <div className="panel">
         <h2>Cookies and contact</h2>
         <p>
-          Customer and owner sign-ins use separate restricted cookies. Supabase
-          Auth sends customer sign-in links; transactional request emails use a
-          separate delivery queue. This implementation does not add advertising
-          or session-recording tools. For information access, correction or
-          deletion requests, contact hello@daytonacarrentals.com. The production
-          retention and provider disclosures must be finalized before live
-          requests open.
+          Customer and owner sign-ins use separate restricted cookies. An unsent
+          name and phone draft may remain in this browser tab for up to 30
+          minutes; it is scoped to the signed-in account and cleared on
+          submission or logout. Documents and tokens are never stored in that
+          draft. Supabase Auth sends customer sign-in links; transactional
+          request emails use a separate delivery queue. This implementation does
+          not add advertising or session-recording tools. For information
+          access, correction or deletion requests, contact
+          hello@daytonacarrentals.com. The production retention and provider
+          disclosures must be finalized before live requests open.
         </p>
       </div>
     </section>

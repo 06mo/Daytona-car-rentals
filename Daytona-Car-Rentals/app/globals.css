@@ -1501,3 +1501,4 @@ summary:focus-visible, [tabindex="-1"]:focus-visible { outline:3px solid var(--t
 @media(min-width:761px) { .journey-compact { align-items:start; } .journey-compact > .optional-dates { margin-top:28px; } }
 
 .captured-email { white-space:pre-wrap; overflow-wrap:anywhere; font:inherit; }
+@media(max-width:400px) { .review-panel .form-actions { flex-direction:column; } .review-panel .form-actions button { height:auto; min-height:44px; padding-block:10px; width:100%; } }

@@ -65,7 +65,8 @@ export function tripStatus(r: Reservation) {
     ],
     approved: [
       "Approved / action required",
-      "Contact our team to complete agreement, payment and release checks. No payment has been taken here.",
+      (r.decisionReason ? r.decisionReason + " " : "") +
+        "Contact our team to complete agreement, payment and release checks. No payment has been taken here.",
     ],
   } as const;
   const s =
@@ -212,7 +213,14 @@ export async function uploadDocument(
       "INSERT INTO dcr_private.documents(id,request_id,kind,content,created_at,expires_at) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(request_id,kind) DO UPDATE SET id=$1,content=$4,created_at=$5,expires_at=$6,reviewed=false",
       [docId, id, k, content, Date.now(), r.quote.endMs + 30 * 86400000],
     );
-    r.checks[k] = { checked: false, evidence: "", checkedAt: 0 };
+    for (const key of (k === "license"
+      ? ["license", "mvr", "agreement"]
+      : [
+          "insurance",
+          "protection",
+          "agreement",
+        ]) as (keyof Reservation["checks"])[])
+      r.checks[key] = { checked: false, evidence: "", checkedAt: 0 };
     r.reviewStage = "documents_needed";
     r.revision++;
     await persist(r);
@@ -251,11 +259,14 @@ export async function deleteDocument(user: CustomerIdentity, id: string) {
     if (!row) throw new PilotError("Document not found.", 404);
     const r = await owned(row.request_id, user);
     await query("DELETE FROM dcr_private.documents WHERE id=$1", [id]);
-    r.checks[row.kind as "license" | "insurance"] = {
-      checked: false,
-      evidence: "",
-      checkedAt: 0,
-    };
+    for (const key of (row.kind === "license"
+      ? ["license", "mvr", "agreement"]
+      : [
+          "insurance",
+          "protection",
+          "agreement",
+        ]) as (keyof Reservation["checks"])[])
+      r.checks[key] = { checked: false, evidence: "", checkedAt: 0 };
     if (r.status === "pending") r.reviewStage = "documents_needed";
     r.revision++;
     await persist(r);
@@ -293,6 +304,7 @@ export async function submitIntake(user: CustomerIdentity, id: string) {
   return transaction(async () => {
     const r = await owned(id, user);
     editable(r);
+    if (r.reviewStage === "under_review") return;
     const intake = (
       await query("SELECT data FROM dcr_private.intakes WHERE request_id=$1", [
         id,
@@ -439,7 +451,7 @@ export async function portalReview(input: unknown, actor: string) {
       if (!intake?.confirmed)
         throw new PilotError("Confirmed renter information is required.");
       const birth = new Date(intake.birthDate + "T12:00:00Z"),
-        at = new Date(r.quote.startMs);
+        at = new Date(r.quote.start.slice(0,10)+"T12:00:00Z");
       let age = at.getUTCFullYear() - birth.getUTCFullYear();
       if (
         at.getUTCMonth() < birth.getUTCMonth() ||
@@ -449,7 +461,7 @@ export async function portalReview(input: unknown, actor: string) {
         age--;
       if (
         age < r.quote.minimumAge ||
-        age > (r.quote.policy?.maximumAge || 99) ||
+        (r.quote.policy?.maximumAge != null && age > r.quote.policy.maximumAge) ||
         daytonaTime(intake.licenseExpiry + "T23:59") < r.quote.endMs
       )
         throw new PilotError(

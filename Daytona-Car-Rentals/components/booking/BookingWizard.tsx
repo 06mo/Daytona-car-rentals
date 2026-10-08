@@ -57,7 +57,11 @@ export function PriceSummary({ quote }: { quote: Quote }) {
       </div>
       {quote.deliveryCents > 0 && (
         <div>
-          <dt>Airport delivery</dt>
+          <dt>
+            {quote.location === "airport"
+              ? "Airport delivery"
+              : "Local pickup service"}
+          </dt>
           <dd>{money(quote.deliveryCents)}</dd>
         </div>
       )}
@@ -128,6 +132,7 @@ export function BookingWizard({
     register,
     handleSubmit,
     getValues,
+    watch,
     setValue,
     formState: { errors },
   } = useForm<Customer>({
@@ -170,6 +175,17 @@ export function BookingWizard({
         if (d.customer) {
           setCustomerIdentity(d.customer);
           setValue("email", d.customer.email);
+          try {
+            const saved = JSON.parse(
+              sessionStorage.getItem("dcr-contact-draft") || "null",
+            );
+            if (saved?.owner === d.customer.id && saved.expires > Date.now()) {
+              setValue("name", String(saved.name || "").slice(0, 100));
+              setValue("phone", String(saved.phone || "").slice(0, 30));
+            } else sessionStorage.removeItem("dcr-contact-draft");
+          } catch {
+            /* Browser storage is optional; browsing/forms still work. */
+          }
         }
       })
       .catch(() => {});
@@ -187,6 +203,23 @@ export function BookingWizard({
     if (step !== previousStep.current || result) heading.current?.focus();
     previousStep.current = step;
   }, [step, result]);
+  useEffect(() => {
+    if (!customerIdentity || result) return;
+    const subscription = watch((values) => {
+      try {
+        sessionStorage.setItem(
+          "dcr-contact-draft",
+          JSON.stringify({
+            owner: customerIdentity.id,
+            name: values.name,
+            phone: values.phone,
+            expires: Date.now() + 30 * 60000,
+          }),
+        );
+      } catch {}
+    });
+    return () => subscription.unsubscribe();
+  }, [customerIdentity, result, watch]);
   const vehicle = vehicles.find((v) => v.id === trip.vehicleId)!;
   const update = (field: keyof TripInput, value: string) => {
     quoteVersion.current++;
@@ -257,6 +290,9 @@ export function BookingWizard({
         }
         throw new Error(data.error);
       }
+      try {
+        sessionStorage.removeItem("dcr-contact-draft");
+      } catch {}
       setResult(data);
     } catch (e) {
       setError(

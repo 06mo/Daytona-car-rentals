@@ -157,12 +157,25 @@ export function calculateQuote(
   now = Date.now(),
 ) {
   const times = tripTimes(trip, now);
-  const policy = resolvePolicy(settings.policy, {
-    ...rate.policy,
-    dailyCents:
-      rate.policy?.dailyCents ??
-      (rate.dailyCents > 0 ? rate.dailyCents : settings.policy?.dailyCents),
-  });
+  const policy = resolvePolicy(
+    {
+      depositCents: settings.depositCents,
+      deliveryCents: settings.deliveryCents,
+      pickupCents: 0,
+      bufferMinutes: settings.bufferMinutes,
+      minimumAge: settings.minimumAge,
+      minDays: 1,
+      maxDays: 30,
+      requiredDocuments: ["license", "insurance"],
+      ...settings.policy,
+    },
+    {
+      ...rate.policy,
+      dailyCents:
+        rate.policy?.dailyCents ??
+        (rate.dailyCents > 0 ? rate.dailyCents : settings.policy?.dailyCents),
+    },
+  );
   if (times.days < (policy.minDays || 1) || times.days > (policy.maxDays || 30))
     throw new TripDateError(
       "These dates do not meet this car’s configured trip duration.",

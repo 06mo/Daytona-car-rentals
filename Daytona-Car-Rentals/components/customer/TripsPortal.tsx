@@ -75,6 +75,9 @@ export function TripsPortal() {
             className="text-link"
             onClick={async () => {
               if (await action({}, "/api/customer/auth", "DELETE")) {
+                try {
+                  sessionStorage.removeItem("dcr-contact-draft");
+                } catch {}
                 setItems([]);
                 setSigned(false);
               }
@@ -91,10 +94,11 @@ export function TripsPortal() {
               <Link href="/fleet">Browse cars</Link>.
             </p>
           )}
-          {items.map((t) => (
+          {items.map((t,index) => (
             <TripCard
               key={t.id + ":" + t.revision}
               trip={t}
+              initialOpen={index===0}
               busy={busy}
               action={action}
             />
@@ -136,10 +140,12 @@ export function TripsPortal() {
 }
 function TripCard({
   trip: t,
+  initialOpen,
   busy,
   action,
 }: {
   trip: Trip;
+  initialOpen: boolean;
   busy: boolean;
   action: (p: unknown, endpoint?: string, method?: string) => Promise<unknown>;
 }) {
@@ -202,7 +208,7 @@ function TripCard({
         </section>
       )}
       {editable && (
-        <details open={!t.intake}>
+        <details open={!t.intake && initialOpen}>
           <summary>Renter information</summary>
           <p>
             For eligibility review and agreement preparation. Do not enter a

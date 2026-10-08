@@ -136,3 +136,11 @@ pg_restore --exit-on-error --single-transaction --enable-row-security --no-owner
 4. Run the application against the isolated target with matching demo/live identity and requests closed, then reconcile external calendars before any separately approved cutover. The old ledger must not remain an independent writer.
 
 `tests/backup.test.ts` executes this arrangement on disposable local Postgres: the fixture administrator only provisions identities/databases; pg_dump runs as a non-superuser SELECT-only BYPASSRLS login, and migrations/pg_restore run as a distinct non-superuser NOBYPASSRLS owner. It compares every ledger table plus migration checksums and verifies restored role restrictions. No protection is disabled. Hosted role provisioning, TLS, backup operations and actual restore privileges remain mandatory preview validations.
+
+## Customer portal migration (003)
+
+Apply `003_customer_portal.sql` using the migration owner, never the runtime role. It adds customer ownership, private intake/image records, association claims, durable notification events, setting history and attributed audit entries. It does not associate old requests automatically, seed hosted data, create Auth users, grant public API access or enable rentals. Existing rows remain valid guest records.
+
+Re-grant SELECT on **all** private tables to the separately provisioned backup reader after migration. The existing schema-wide INSERT-format dump includes document bytes, customer UUIDs and outbox state; treat it as highly sensitive. The expanded backup regression populates and compares these tables too. Supabase Auth is outside this ledger backup: separately preserve provider-supported Auth backups and user UUIDs. Restoring rental rows alone does not recreate accounts. Do not bulk reassociate restored requests by email or import Preview users/data into Production.
+
+Before any recovery resumes workers, reconcile outbox `sent`, `retry` and `blocked` records against provider history; do not reset idempotency keys or replay a historical outbox blindly. Restore into an isolated database with capture mode and customer writes closed. Respect the 23-hour retry cutoff and confirm document retention/deletion against backup schedules. The original forced-RLS role separation still applies to every new table.

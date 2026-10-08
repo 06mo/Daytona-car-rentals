@@ -307,7 +307,15 @@ export async function adminAction(input: unknown, actor = "owner:legacy") {
         throw new PilotError(
           "Policy, agreement, taxes, minimum age, and mileage must be configured before opening requests.",
         );
-      resolvePolicy(a.settings.policy);
+      try {
+        resolvePolicy(a.settings.policy);
+        for (const rate of await rates())
+          resolvePolicy(a.settings.policy, rate.policy);
+      } catch {
+        throw new PilotError(
+          "Global policy conflicts with an age or trip-duration limit. Check vehicle overrides.",
+        );
+      }
       await query(
         "INSERT INTO dcr_private.setting_history VALUES($1,$2,$3,$4,$5)",
         [randomUUID(), Date.now(), actor, "settings", s],
@@ -327,7 +335,13 @@ export async function adminAction(input: unknown, actor = "owner:legacy") {
           (a.dailyCents || (await settings()).policy?.dailyCents || 0)) <= 0
       )
         throw new PilotError("An enabled car needs a positive daily rate.");
-      resolvePolicy((await settings()).policy, a.policy);
+      try {
+        resolvePolicy((await settings()).policy, a.policy);
+      } catch {
+        throw new PilotError(
+          "Vehicle policy conflicts with a global age or trip-duration limit.",
+        );
+      }
       await query(
         "INSERT INTO dcr_private.setting_history VALUES($1,$2,$3,$4,$5)",
         [randomUUID(), Date.now(), actor, a.vehicleId, old],

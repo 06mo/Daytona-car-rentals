@@ -59,7 +59,7 @@ export function PortalReview({
             {r.customerId
               ? "Email account associated"
               : "Guest — no account association"}{" "}
-            · {r.reviewStage || "Legacy manual review"}
+            · {r.reviewStage?.replaceAll("_", " ") || "Legacy manual review"}
           </p>
           {intake ? (
             <dl>
@@ -67,8 +67,24 @@ export function PortalReview({
                 .filter(([k]) => !["confirmedAt"].includes(k))
                 .map(([k, v]) => (
                   <div key={k}>
-                    <dt>{k}</dt>
-                    <dd>{String(v)}</dd>
+                    <dt>
+                      {{
+                        legalName: "Legal name",
+                        birthDate: "Date of birth",
+                        licenseRegion: "License issuing region",
+                        licenseExpiry: "License expiration",
+                        address: "Agreement address",
+                        confirmed: "Renter confirmed fields",
+                        reviewed: "Owner reviewed fields",
+                      }[k] || k}
+                    </dt>
+                    <dd>
+                      {typeof v === "boolean"
+                        ? v
+                          ? "Yes"
+                          : "Pending"
+                        : String(v)}
+                    </dd>
                   </div>
                 ))}
             </dl>
@@ -198,7 +214,11 @@ export function PortalReview({
         {data?.notifications.map((n) => (
           <details key={n.id}>
             <summary>
-              {n.event_key} · {n.state} · attempts {n.attempts}
+              {n.event_key} ·{" "}
+              {n.state === "sent"
+                ? "Provider accepted (delivery unverified)"
+                : n.state}{" "}
+              · attempts {n.attempts}
             </summary>
             <pre className="captured-email">
               {n.payload?.subject}

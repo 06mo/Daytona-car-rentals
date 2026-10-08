@@ -1,3 +1,4 @@
+import { customerSession } from "./auth-helper";
 import { test, expect, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 const origin = "http://127.0.0.1:3000";
@@ -52,19 +53,18 @@ test("desktop and mobile homepage are usable without overflow", async ({
 test("three-screen request flow shows totals and never claims confirmation", async ({
   page,
 }) => {
+  await customerSession(page.context());
   await page.goto("/booking?vehicle=corolla-3275798");
   await page.getByLabel("Pickup date & time").fill("2030-10-01T10:00");
   await page.getByLabel("Return date & time").fill("2030-10-04T10:00");
   await page.getByRole("button", { name: "See my trip total" }).click();
   await expect(page.getByText("Trip total", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Continue to verify" }).click();
+  await page.getByRole("button", { name: "Continue to contact details" }).click();
   await expect(
     page.getByRole("heading", { name: "Let’s get you ready." }),
   ).toBeVisible();
   await page.getByLabel("Full name").fill("Sample Renter");
-  await page
-    .getByLabel("Email", { exact: true })
-    .fill("sample@example.invalid");
+  await expect(page.getByLabel("Email", { exact: true })).toHaveValue("renter@example.invalid");
   await page.getByLabel("Phone", { exact: true }).fill("3865550100");
   await page.getByRole("button", { name: "Continue to review" }).click();
   await expect(
@@ -93,7 +93,7 @@ test("three-screen request flow shows totals and never claims confirmation", asy
   await expect(
     page.getByRole("heading", { name: "Preview request complete." }),
   ).toBeVisible();
-  await expect(page.getByText(/No personal details were saved/)).toBeVisible();
+  await expect(page.getByText(/Only synthetic renter records/)).toBeVisible();
 });
 test("unauthenticated admin access and foreign-origin writes are rejected", async ({
   request,
@@ -117,8 +117,10 @@ test("unauthenticated admin access and foreign-origin writes are rejected", asyn
   ).toBe(403);
 });
 test("competing submissions atomically allocate one internal hold", async ({
-  request,
+  page,
 }) => {
+  await customerSession(page.context());
+  const request=page.request;
   const trip = {
     vehicleId: "ecosport-3580557",
     start: "2030-11-01T10:00",
@@ -201,7 +203,7 @@ test("authenticated operator can change a rate and see readiness gates", async (
     return {status: response.status, data: await response.json()};
   }, {id: pending.id, revision: pending.revision});
   expect(result.status).toBe(409);
-  expect(result.data.error).toContain("release check");
+  expect(result.data.error).toMatch(/release check|renter\/document approval/);
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(
     page.getByRole("button", { name: "Sign in", exact: true }),
