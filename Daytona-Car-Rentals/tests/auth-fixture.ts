@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 export async function authFixture() {
+  if (process.env.VERCEL || ["preview", "production"].includes(process.env.VERCEL_ENV || "")) throw new Error("Local Auth fixtures cannot run in hosted environments.");
   const directory = mkdtempSync(join(tmpdir(), "dcr-auth-"));
   const cert = join(directory, "cert.pem"),
     key = join(directory, "key.pem");

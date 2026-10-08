@@ -62,6 +62,10 @@ test("read-only backup role bypasses FORCE RLS; non-bypass restore owner restore
       },
       { id: randomUUID(), email: "backup@example.invalid" },
     );
+    await source.owner.query(
+      "UPDATE dcr_private.outbox SET claim_token=$1,lease_until=$2,delivery=$3",
+      [randomUUID(), Date.now()+60000, JSON.stringify({from:"synthetic@example.invalid",to:["synthetic@example.invalid"],text:"Synthetic frozen delivery"})],
+    );
     await source.owner.query("INSERT INTO dcr_private.intakes VALUES($1,$2)", [
       saved.id,
       { legalName: "Synthetic backup driver", confirmed: true },

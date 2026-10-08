@@ -553,12 +553,21 @@ export async function agreementFields(id: string, actor: string) {
     if (
       !r ||
       !intake?.reviewed ||
-      !["approved", "confirmed"].includes(r.reviewStage || r.status)
+      r.reviewStage !== "approved" ||
+      !(r.status === "confirmed" || (r.status === "pending" && r.holdUntil > Date.now()))
     )
       throw new PilotError(
         "Reviewed, approved records are required before mapping agreement fields.",
         409,
       );
+    const documents = (await query(
+      "SELECT kind FROM dcr_private.documents WHERE request_id=$1 AND reviewed AND expires_at>$2",
+      [id, Date.now()],
+    )).rows;
+    if ((r.quote.policy?.requiredDocuments || ["license", "insurance"]).some(
+      kind => !documents.some(document => document.kind === kind),
+    )) throw new PilotError("Current reviewed documents are required before generating agreement fields.", 409);
+    // This is fresh field generation, never retrieval of an executed agreement.
     await recordAudit("agreement.fields", id, actor);
     return {
       requestId: id,

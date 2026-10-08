@@ -1,3 +1,4 @@
+if (process.env.VERCEL || ["preview", "production"].includes(process.env.VERCEL_ENV || "")) throw new Error("Local Auth DNS fixture cannot run in hosted environments.");
 // Loaded only by the isolated E2E child process. Never used by the app or deployed.
 const dns=require('node:dns');
 const lookup=dns.lookup;

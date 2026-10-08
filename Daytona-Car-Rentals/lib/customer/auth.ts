@@ -18,6 +18,17 @@ export function authClient() {
       503,
     );
   const u = new URL(url);
+  const hosted = !!process.env.VERCEL || ["preview", "production"].includes(process.env.VERCEL_ENV || "");
+  if (hosted && (
+    process.env.NODE_ENV === "test" ||
+    !/^[a-z0-9]{20}$/.test(process.env.DCR_SUPABASE_PROJECT_REF || "") ||
+    u.protocol !== "https:" || u.port || u.username || u.password ||
+    u.pathname !== "/" || u.search || u.hash ||
+    u.hostname !== process.env.DCR_SUPABASE_PROJECT_REF + ".supabase.co" ||
+    !/^(sb_publishable_|eyJ)/.test(key) ||
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED === "0" ||
+    /dns-fixture|auth-fixture/.test(process.env.NODE_OPTIONS || "")
+  )) throw new PilotError("Test authentication configuration is forbidden in hosted environments.", 503);
   if (
     u.protocol !== "https:" &&
     !(

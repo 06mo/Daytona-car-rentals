@@ -431,3 +431,38 @@ test('age eligibility uses the Eastern pickup birthday, not the next UTC day',as
  await saveIntake(a,r.id,{legalName:'Synthetic birthday test',birthDate:'2018-01-02',licenseRegion:'FL',licenseExpiry:'2045-01-01',address:'Synthetic address only',confirmed:true});
  await assert.rejects(portalReview({action:'documents',id:r.id,revision:(await owned(r.id,a)).revision,reason:'Synthetic age boundary review'},'owner:test'),/Age or license expiry/);
 });
+
+test('agreement generation rejects stale approval on cancelled, declined, expired and unapproved requests',async()=>{
+  const q=await quote({...base,start:'2045-01-01T10:00',end:'2045-01-08T10:00'});
+  const request=await createRequest(payload(q.id),a), target=request.id;
+  await saveIntake(a,target,{legalName:'Synthetic agreement test',birthDate:'1990-01-01',licenseRegion:'FL',licenseExpiry:'2047-01-01',address:'Synthetic address only',confirmed:true});
+  const image=(await sharp({create:{width:20,height:20,channels:3,background:'#ccc'}}).png().toBuffer()).toString('base64');
+  for(const kind of ['license','insurance'])await uploadDocument(a,target,kind,image);
+  for(const action of ['documents','approved'])await portalReview({action,id:target,revision:(await owned(target,a)).revision,reason:'Synthetic owner review'},'owner:test');
+  const r=await owned(target,a);
+  assert.equal((await agreementFields(target,'owner:test')).requestId,target);
+  for(const change of [
+    {status:'cancelled',reviewStage:'approved'},
+    {status:'cancelled',reviewStage:'declined'},
+    {status:'pending',reviewStage:'approved',holdUntil:0},
+    {status:'pending',reviewStage:'under_review',holdUntil:Date.now()+60000},
+  ]){
+    await db.owner.query('UPDATE dcr_private.reservations SET data=$2 WHERE id=$1',[target,{...r,...change}]);
+    await assert.rejects(agreementFields(target,'owner:test'),/Reviewed, approved/);
+  }
+  // A confirmed reservation is not subject to its former pending-hold deadline.
+  await db.owner.query('UPDATE dcr_private.reservations SET data=$2 WHERE id=$1',[target,{...r,status:'confirmed',holdUntil:0}]);
+  assert.equal((await agreementFields(target,'owner:test')).requestId,target);
+  await db.owner.query('UPDATE dcr_private.documents SET reviewed=false WHERE request_id=$1',[target]);
+  await assert.rejects(agreementFields(target,'owner:test'),/Current reviewed documents/);
+});
+test('Preview forces capture even when a sending mode and sender credentials are supplied',async()=>{
+ const saved={...process.env},original=global.fetch;let calls=0;
+ try{
+  process.env.VERCEL_ENV='preview';process.env.DCR_EMAIL_MODE='resend';process.env.DCR_EMAIL_API_KEY='synthetic-only';process.env.DCR_EMAIL_FROM='synthetic@example.invalid';
+  global.fetch=async()=>{calls++;throw Error('No Preview email may be sent');};
+  const event=randomUUID();await query('INSERT INTO dcr_private.outbox(id,event_key,recipient,payload,created_at) VALUES($1,$2,$3,$4,$5)',[event,event,'not-approved@example.invalid',{subject:'synthetic',text:'synthetic'},Date.now()]);
+  for(let i=0;i<20;i++)await dispatchNotifications();
+  assert.equal(calls,0);assert.equal((await query('SELECT state FROM dcr_private.outbox WHERE id=$1',[event])).rows[0].state,'captured');
+ }finally{process.env=saved;global.fetch=original;}
+});

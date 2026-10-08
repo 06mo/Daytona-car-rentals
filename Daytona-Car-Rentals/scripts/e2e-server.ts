@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { spawn } from "node:child_process";
 import { createTestDatabase } from "../tests/postgres-fixture";
 async function main() {
+  if (process.env.VERCEL || ["preview", "production"].includes(process.env.VERCEL_ENV || "")) throw new Error("Local Auth fixtures cannot run in hosted environments.");
   const fixture = await createTestDatabase(true);
   const auth = await authFixture();
   const {
