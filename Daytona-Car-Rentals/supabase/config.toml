@@ -1,0 +1,6 @@
+project_id = "daytona-preview-auth"
+
+[functions.preview-auth-email]
+# Supabase Auth uses Standard Webhooks signatures, not a user JWT.
+verify_jwt = false
+entrypoint = "./functions/preview-auth-email/index.ts"

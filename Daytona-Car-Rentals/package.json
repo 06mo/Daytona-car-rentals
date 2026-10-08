@@ -15,7 +15,8 @@
     "db:seed": "node --import tsx scripts/db.ts seed-demo",
     "db:init-live": "node --import tsx scripts/db.ts init-live",
     "test:preview-origin": "node --conditions=react-server --import tsx tests/preview-origin.test.ts",
-    "test:portal": "node --conditions=react-server --import tsx tests/portal.test.ts && node --conditions=react-server --import tsx tests/outbox.test.ts && node --conditions=react-server --import tsx tests/auth-isolation.test.ts"
+    "test:portal": "node --conditions=react-server --import tsx tests/portal.test.ts && node --conditions=react-server --import tsx tests/outbox.test.ts && node --conditions=react-server --import tsx tests/auth-isolation.test.ts",
+    "test:auth-hook": "node --import tsx tests/preview-auth-hook.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
@@ -30,6 +31,7 @@
     "react-hook-form": "^7.89.0",
     "server-only": "^0.0.1",
     "sharp": "^0.35.5",
+    "standardwebhooks": "1.0.0",
     "tailwind-merge": "^3.5.0",
     "zod": "^4.6.5"
   },

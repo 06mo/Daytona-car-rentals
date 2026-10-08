@@ -33,3 +33,10 @@ test('diagnostic DNS/CA fixture cannot authenticate with hosted flags',async()=>
   const start=spawnSync(process.execPath,['--import','tsx','-e',"import('./tests/auth-fixture.ts').then(m=>(m.authFixture||m.default.authFixture)()).then(()=>process.exit(1)).catch(e=>{if(!e.message.includes('cannot run in hosted'))process.exit(2)})"],{env,encoding:'utf8'});assert.equal(start.status,0,start.stderr);
  }}finally{await fixture.close();}
 });
+test('Preview application sender rejects the owner mailbox and aliases with the approved list configured',async()=>{
+ const {sendLink}=await import('../lib/customer/auth');const saved={...process.env};
+ try{
+  process.env={...saved,NODE_ENV:'production',DCR_DEMO_MODE:'true',DCR_SITE_ORIGIN:'https://synthetic-preview.vercel.app',DCR_AUTH_TEST_EMAILS:'msooijir@gmail.com',DCR_SUPABASE_AUTH_URL:'https://abcdefghijklmnopqrst.supabase.co',DCR_SUPABASE_PROJECT_REF:'abcdefghijklmnopqrst',DCR_SUPABASE_PUBLISHABLE_KEY:'sb_publishable_synthetic'};
+  for(const email of ['tmdallianceltd@gmail.com','msooijir+preview@gmail.com','other@example.invalid'])await assert.rejects(sendLink({email}),/approved test recipients/);
+ }finally{process.env=saved;}
+});
