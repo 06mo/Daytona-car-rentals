@@ -1472,3 +1472,13 @@ summary:focus-visible, [tabindex="-1"]:focus-visible { outline:3px solid var(--t
   .booking-progress { margin-top:18px; }
   .booking-main { padding:18px; }
 }
+
+/* Keep the date panel on the hero grid, with deliberate breathing room. */
+.home-hero { row-gap:36px; }
+.hero-search { margin:0; padding:20px 24px; }
+.hero-search .journey-fields { margin:0 0 14px; gap:12px 18px; }
+.hero-photo img { object-position:50% 57%; }
+.date-actions { display:flex; align-items:center; flex-wrap:wrap; gap:16px; }
+.journey-compact { align-items:end; }
+.journey-compact > .optional-dates { margin-bottom:0; }
+@media(max-width:760px) { .home-hero { row-gap:24px; } .hero-search { padding:18px; } }
