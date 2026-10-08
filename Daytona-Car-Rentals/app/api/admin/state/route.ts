@@ -15,8 +15,9 @@ export async function GET() {
 }
 export async function POST(request: Request) {
   try {
-    await requireAdmin();
-    await adminAction(await body(request));
+    const input = await body(request);
+    const actor = await requireAdmin();
+    await adminAction(input, actor);
     return NextResponse.json(await adminState(), {
       headers: { "Cache-Control": "no-store" },
     });

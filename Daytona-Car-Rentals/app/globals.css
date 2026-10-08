@@ -1482,3 +1482,22 @@ summary:focus-visible, [tabindex="-1"]:focus-visible { outline:3px solid var(--t
 .journey-compact { align-items:end; }
 .journey-compact > .optional-dates { margin-bottom:0; }
 @media(max-width:760px) { .home-hero { row-gap:24px; } .hero-search { padding:18px; } }
+
+.portal { max-width:1000px; }
+.portal .panel { margin:24px 0; }
+.portal input:not([type=checkbox]), .portal select, .portal textarea, .portal-tools input, .portal-tools select, .portal-tools textarea { display:block; width:100%; min-width:0; padding:11px; border:1px solid var(--line); border-radius:7px; background:white; color:var(--ink); margin:6px 0 16px; }
+.portal label { display:block; }
+.portal details, .portal-tools details { margin:18px 0; }
+.portal summary, .portal-tools summary { cursor:pointer; padding:10px 0; font-weight:600; }
+.portal .reference, .portal-tools { overflow-wrap:anywhere; }
+.portal > .text-link { margin-right:20px; }
+.portal button { margin-top:12px; }
+.portal input[type=file] { max-width:100%; font-size:0.85rem; }
+.portal .checkbox-row { display:flex; }
+.portal-tools { margin:24px 0; }
+.policy-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+@media(max-width:600px){ .policy-grid { grid-template-columns:1fr; } .portal .panel { padding:18px; } }
+@media(min-width:761px) { .hero-photo { min-height:0; height:auto; aspect-ratio:4/3; align-self:end; } }
+@media(min-width:761px) { .journey-compact { align-items:start; } .journey-compact > .optional-dates { margin-top:28px; } }
+
+.captured-email { white-space:pre-wrap; overflow-wrap:anywhere; font:inherit; }

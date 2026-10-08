@@ -13,7 +13,10 @@ import { query, transaction } from "./database";
 
 export function sameOrigin(request: Request) {
   if (process.env.NODE_ENV === "production" && !process.env.DCR_SITE_ORIGIN)
-    throw new PilotError("Set DCR_SITE_ORIGIN before accepting production requests.", 503);
+    throw new PilotError(
+      "Set DCR_SITE_ORIGIN before accepting production requests.",
+      503,
+    );
   const origin = request.headers.get("origin");
   const expected = process.env.DCR_SITE_ORIGIN || new URL(request.url).origin;
   if (origin !== expected)
@@ -21,7 +24,7 @@ export function sameOrigin(request: Request) {
   if (request.headers.get("content-type")?.split(";")[0] !== "application/json")
     throw new PilotError("Send JSON only.", 415);
 }
-export async function body(request: Request) {
+export async function body(request: Request, maximumBytes = 12000) {
   sameOrigin(request);
   const reader = request.body?.getReader();
   if (!reader) throw new PilotError("Request body is required.");
@@ -32,7 +35,7 @@ export async function body(request: Request) {
     const part = await reader.read();
     if (part.done) break;
     bytes += part.value.byteLength;
-    if (bytes > 12000) {
+    if (bytes > maximumBytes) {
       await reader.cancel();
       throw new PilotError("Request is too large.", 413);
     }
@@ -46,7 +49,8 @@ export async function body(request: Request) {
   }
 }
 export function responseError(error: unknown) {
-  if (error instanceof TripDateError) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error instanceof TripDateError)
+    return NextResponse.json({ error: error.message }, { status: 400 });
   if (error instanceof ZodError)
     return NextResponse.json(
       { error: error.issues[0]?.message || "Check your information." },
@@ -66,20 +70,28 @@ export function responseError(error: unknown) {
 }
 export async function limit(id: string, maximum: number, windowMs: number) {
   const now = Date.now();
-  const row = (await query(
-    "INSERT INTO dcr_private.attempts(id,count,reset) VALUES($1,1,$2) ON CONFLICT(id) DO UPDATE SET count=CASE WHEN attempts.reset<=$3 THEN 1 ELSE attempts.count+1 END, reset=CASE WHEN attempts.reset<=$3 THEN $2 ELSE attempts.reset END RETURNING count",
-    [id, now + windowMs, now],
-  )).rows[0];
-  if (Number(row.count) > maximum) throw new PilotError("Too many attempts. Please try again later.", 429);
+  const row = (
+    await query(
+      "INSERT INTO dcr_private.attempts(id,count,reset) VALUES($1,1,$2) ON CONFLICT(id) DO UPDATE SET count=CASE WHEN attempts.reset<=$3 THEN 1 ELSE attempts.count+1 END, reset=CASE WHEN attempts.reset<=$3 THEN $2 ELSE attempts.reset END RETURNING count",
+      [id, now + windowMs, now],
+    )
+  ).rows[0];
+  if (Number(row.count) > maximum)
+    throw new PilotError("Too many attempts. Please try again later.", 429);
 }
 const digest = (token: string) =>
   createHash("sha256").update(token).digest("hex");
 export async function requireAdmin() {
   const token = (await cookies()).get("dcr_admin")?.value;
   if (!token) throw new PilotError("Sign in to continue.", 401);
-  const row = (await query("SELECT expires FROM dcr_private.sessions WHERE hash=$1", [digest(token)])).rows[0];
+  const row = (
+    await query("SELECT expires FROM dcr_private.sessions WHERE hash=$1", [
+      digest(token),
+    ])
+  ).rows[0];
   if (!row || Number(row.expires) <= Date.now())
     throw new PilotError("Session expired. Sign in again.", 401);
+  return "owner:" + digest(token).slice(0, 16);
 }
 export async function signIn(password: unknown) {
   const hash = process.env.DCR_ADMIN_PASSWORD_HASH;
@@ -97,8 +109,13 @@ export async function signIn(password: unknown) {
   const token = randomBytes(32).toString("hex");
   await transaction(async () => {
     await query("DELETE FROM dcr_private.attempts WHERE id='admin-login'");
-    await query("DELETE FROM dcr_private.sessions WHERE expires<=$1", [Date.now()]);
-    await query("INSERT INTO dcr_private.sessions VALUES($1,$2)", [digest(token), Date.now() + 8 * 3600000]);
+    await query("DELETE FROM dcr_private.sessions WHERE expires<=$1", [
+      Date.now(),
+    ]);
+    await query("INSERT INTO dcr_private.sessions VALUES($1,$2)", [
+      digest(token),
+      Date.now() + 8 * 3600000,
+    ]);
   });
   (await cookies()).set("dcr_admin", token, {
     httpOnly: true,
@@ -112,6 +129,8 @@ export async function signOut() {
   const jar = await cookies(),
     token = jar.get("dcr_admin")?.value;
   if (token)
-    await query("DELETE FROM dcr_private.sessions WHERE hash=$1", [digest(token)]);
+    await query("DELETE FROM dcr_private.sessions WHERE hash=$1", [
+      digest(token),
+    ]);
   jar.delete("dcr_admin");
 }

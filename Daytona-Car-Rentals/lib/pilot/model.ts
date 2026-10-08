@@ -1,3 +1,4 @@
+import { resolvePolicy, type RentalPolicy } from "./policy";
 import { z } from "zod";
 
 export const money = (cents: number) =>
@@ -25,6 +26,7 @@ export const requestSchema = z.object({
   website: z.string().max(0),
 });
 export type PilotSettings = {
+  policy?: RentalPolicy;
   taxBps: number;
   surchargeCents: number;
   deliveryCents: number;
@@ -42,6 +44,7 @@ export type PilotSettings = {
   revision: number;
 };
 export type FleetRate = {
+  policy?: RentalPolicy;
   vehicleId: string;
   dailyCents: number;
   enabled: boolean;
@@ -49,6 +52,8 @@ export type FleetRate = {
 };
 export type Quote = TripInput & {
   id: string;
+  policy?: RentalPolicy;
+  agreementVersion?: string;
   startMs: number;
   endMs: number;
   days: number;
@@ -77,6 +82,16 @@ export const checks = [
 export type CheckName = (typeof checks)[number];
 export type Review = { checked: boolean; evidence: string; checkedAt: number };
 export type Reservation = {
+  customerId?: string;
+  reviewStage?:
+    | "documents_needed"
+    | "under_review"
+    | "corrections"
+    | "alternative"
+    | "declined"
+    | "approved";
+  decisionReason?: string;
+  alternative?: Quote;
   id: string;
   quote: Quote;
   name: string;
@@ -142,10 +157,29 @@ export function calculateQuote(
   now = Date.now(),
 ) {
   const times = tripTimes(trip, now);
-  const rentalCents = rate.dailyCents * times.days;
+  const policy = resolvePolicy(settings.policy, {
+    ...rate.policy,
+    dailyCents:
+      rate.policy?.dailyCents ??
+      (rate.dailyCents > 0 ? rate.dailyCents : settings.policy?.dailyCents),
+  });
+  if (times.days < (policy.minDays || 1) || times.days > (policy.maxDays || 30))
+    throw new TripDateError(
+      "These dates do not meet this car’s configured trip duration.",
+    );
+  const daily = policy.dailyCents ?? rate.dailyCents;
+  const rentalCents =
+    times.days === 30 && policy.monthlyCents != null
+      ? policy.monthlyCents
+      : policy.weeklyCents != null
+        ? Math.floor(times.days / 7) * policy.weeklyCents +
+          (times.days % 7) * daily
+        : daily * times.days;
   const surchargeCents = settings.surchargeCents * Math.min(30, times.days);
   const deliveryCents =
-    trip.location === "airport" ? settings.deliveryCents : 0;
+    trip.location === "airport"
+      ? (policy.deliveryCents ?? settings.deliveryCents)
+      : (policy.pickupCents ?? 0);
   const taxCents = Math.round(
     ((rentalCents + surchargeCents + deliveryCents) * settings.taxBps) / 10000,
   );
@@ -157,12 +191,17 @@ export function calculateQuote(
     deliveryCents,
     taxCents,
     totalCents: rentalCents + surchargeCents + deliveryCents + taxCents,
-    depositCents: settings.depositCents,
+    policy,
+    agreementVersion: settings.agreementVersion,
+    depositCents: policy.depositCents ?? settings.depositCents,
     expiresAt: now + 15 * 60000,
     settingsRevision: settings.revision,
     rateRevision: rate.revision,
-    mileage: settings.mileage,
-    minimumAge: settings.minimumAge,
+    mileage:
+      policy.mileagePerDay != null
+        ? `${policy.mileagePerDay} miles per rental day`
+        : settings.mileage,
+    minimumAge: policy.minimumAge ?? settings.minimumAge,
   };
 }
 export function overlaps(

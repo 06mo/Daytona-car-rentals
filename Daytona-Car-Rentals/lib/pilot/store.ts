@@ -1,3 +1,6 @@
+import { policySchema, resolvePolicy } from "./policy";
+import { notify } from "../customer/notifications";
+import type { CustomerIdentity } from "../customer/auth";
 import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 import { vehicles } from "../data/vehicles";
@@ -23,26 +26,45 @@ import { PilotError } from "./errors";
 import { query, transaction, isDemo } from "./database";
 export { isDemo } from "./database";
 async function read<T>(table: "reservations" | "blocks"): Promise<T[]> {
-  return (await query(`SELECT data FROM dcr_private.${table}`)).rows.map(row => row.data as T);
+  return (await query(`SELECT data FROM dcr_private.${table}`)).rows.map(
+    (row) => row.data as T,
+  );
 }
 async function config<T>(id: string): Promise<T> {
-  const row = (await query("SELECT data FROM dcr_private.config WHERE id=$1", [id])).rows[0];
-  if (!row) throw new PilotError("Configuration missing. Initialize the database environment.", 503);
+  const row = (
+    await query("SELECT data FROM dcr_private.config WHERE id=$1", [id])
+  ).rows[0];
+  if (!row)
+    throw new PilotError(
+      "Configuration missing. Initialize the database environment.",
+      503,
+    );
   return row.data as T;
 }
 export const settings = () => config<PilotSettings>("settings");
 export const rates = async () => {
-  const rows = (await query("SELECT data FROM dcr_private.config WHERE id LIKE 'rate:%'")).rows;
-  return vehicles.map(v => {
-    const rate = rows.find(row => row.data.vehicleId === v.id)?.data as FleetRate | undefined;
+  const rows = (
+    await query("SELECT data FROM dcr_private.config WHERE id LIKE 'rate:%'")
+  ).rows;
+  return vehicles.map((v) => {
+    const rate = rows.find((row) => row.data.vehicleId === v.id)?.data as
+      | FleetRate
+      | undefined;
     if (!rate) throw new PilotError("Vehicle rate configuration missing.", 503);
     return rate;
   });
 };
 export const reservations = () => read<Reservation>("reservations");
 export const blocks = () => read<CalendarBlock>("blocks");
-async function audit(action: string, reference: string) {
-  await query("INSERT INTO dcr_private.audit VALUES($1,$2,$3,$4)", [randomUUID(), Date.now(), action, reference]);
+async function audit(
+  action: string,
+  reference: string,
+  actor = "owner:legacy",
+) {
+  await query(
+    "INSERT INTO dcr_private.audit(id,at,action,reference,actor) VALUES($1,$2,$3,$4,$5)",
+    [randomUUID(), Date.now(), action, reference, actor],
+  );
 }
 async function assertAvailable(
   trip: { vehicleId: string; startMs: number; endMs: number },
@@ -50,6 +72,9 @@ async function assertAvailable(
 ) {
   const s = await settings(),
     now = Date.now();
+  const rate = await config<FleetRate>("rate:" + trip.vehicleId);
+  const buffer =
+    resolvePolicy(s.policy, rate.policy).bufferMinutes ?? s.bufferMinutes;
   const conflict = (await reservations()).some(
     (r) =>
       r.id !== exclude &&
@@ -61,13 +86,13 @@ async function assertAvailable(
         trip.endMs,
         r.quote.startMs,
         r.quote.endMs,
-        s.bufferMinutes,
+        Math.max(buffer, r.quote.policy?.bufferMinutes ?? 0),
       ),
   );
   const blocked = (await blocks()).some(
     (b) =>
       b.vehicleId === trip.vehicleId &&
-      overlaps(trip.startMs, trip.endMs, b.startMs, b.endMs, s.bufferMinutes),
+      overlaps(trip.startMs, trip.endMs, b.startMs, b.endMs, buffer),
   );
   if (conflict || blocked)
     throw new PilotError(
@@ -76,45 +101,56 @@ async function assertAvailable(
     );
 }
 function assertDirect(vehicleId: string) {
-  if (!isDirectRental(vehicleId)) throw new PilotError("This vehicle is Turo-only. Book through its Turo listing.", 409);
+  if (!isDirectRental(vehicleId))
+    throw new PilotError(
+      "This vehicle is Turo-only. Book through its Turo listing.",
+      409,
+    );
 }
 export async function quote(input: unknown): Promise<Quote> {
   return transaction(async () => {
-  const trip = tripSchema.parse(input);
-  assertDirect(trip.vehicleId);
-  const s = await settings(),
-    rate = await config<FleetRate>("rate:" + trip.vehicleId);
-  if (
-    !vehicles.some((v) => v.id === trip.vehicleId) ||
-    !rate.enabled ||
-    rate.dailyCents <= 0
-  )
-    throw new PilotError(
-      "Direct rentals are not configured for this vehicle.",
-      409,
+    const trip = tripSchema.parse(input);
+    assertDirect(trip.vehicleId);
+    const s = await settings(),
+      rate = await config<FleetRate>("rate:" + trip.vehicleId);
+    if (
+      !vehicles.some((v) => v.id === trip.vehicleId) ||
+      !rate.enabled ||
+      (rate.policy?.dailyCents ??
+        (rate.dailyCents || s.policy?.dailyCents || 0)) <= 0
+    )
+      throw new PilotError(
+        "Direct rentals are not configured for this vehicle.",
+        409,
+      );
+    if (!isDemo() && !launchReady(s))
+      throw new PilotError(
+        "Direct requests are not open yet. Please contact us or book on Turo.",
+        503,
+      );
+    if (!isDemo() && trip.location === "airport" && !s.airportApproved)
+      throw new PilotError(
+        "Airport delivery is not open for direct rentals yet.",
+        409,
+      );
+    const q = {
+      ...calculateQuote(trip, s, rate),
+      id: randomUUID(),
+      demo: isDemo(),
+    };
+    await assertAvailable(q);
+    await query(
+      "DELETE FROM dcr_private.quotes WHERE (data->>'expiresAt')::bigint < $1",
+      [Date.now() - 86400000],
     );
-  if (!isDemo() && !launchReady(s))
-    throw new PilotError(
-      "Direct requests are not open yet. Please contact us or book on Turo.",
-      503,
-    );
-  if (!isDemo() && trip.location === "airport" && !s.airportApproved)
-    throw new PilotError(
-      "Airport delivery is not open for direct rentals yet.",
-      409,
-    );
-  const q = {
-    ...calculateQuote(trip, s, rate),
-    id: randomUUID(),
-    demo: isDemo(),
-  };
-  await assertAvailable(q);
-  await query("DELETE FROM dcr_private.quotes WHERE (data->>'expiresAt')::bigint < $1", [Date.now() - 86400000]);
-  await query("INSERT INTO dcr_private.quotes VALUES($1,$2)", [q.id, q]);
-  return q;
+    await query("INSERT INTO dcr_private.quotes VALUES($1,$2)", [q.id, q]);
+    return q;
   });
 }
-export async function createRequest(input: unknown) {
+export async function createRequest(
+  input: unknown,
+  identity?: CustomerIdentity,
+) {
   const payload = requestSchema.parse(input);
   // The demo never persists entered contact details. It stores synthetic records only.
   const customer = isDemo()
@@ -123,18 +159,37 @@ export async function createRequest(input: unknown) {
         email: "preview@example.invalid",
         phone: "0000000000",
       }
-    : { name: payload.name, email: payload.email, phone: payload.phone };
+    : {
+        name: payload.name,
+        email: identity?.email || payload.email,
+        phone: payload.phone,
+      };
   const hash = createHash("sha256")
-    .update(JSON.stringify({ quoteId: payload.quoteId, ...customer }))
+    .update(
+      JSON.stringify({
+        quoteId: payload.quoteId,
+        ...(identity ? { customerId: identity.id } : {}),
+        ...customer,
+      }),
+    )
     .digest("hex");
   return transaction(async () => {
-    const previous = (await query("SELECT data,payload_hash FROM dcr_private.reservations WHERE request_key=$1", [payload.idempotencyKey])).rows[0];
+    const previous = (
+      await query(
+        "SELECT data,payload_hash FROM dcr_private.reservations WHERE request_key=$1",
+        [payload.idempotencyKey],
+      )
+    ).rows[0];
     if (previous) {
       if (previous.payload_hash !== hash)
         throw new PilotError("This request key has already been used.", 409);
       return previous.data as Reservation;
     }
-    const row = (await query("SELECT data FROM dcr_private.quotes WHERE id=$1", [payload.quoteId])).rows[0];
+    const row = (
+      await query("SELECT data FROM dcr_private.quotes WHERE id=$1", [
+        payload.quoteId,
+      ])
+    ).rows[0];
     if (!row) throw new PilotError("Please get a new quote.", 409);
     const q: Quote = row.data;
     assertDirect(q.vehicleId);
@@ -166,6 +221,9 @@ export async function createRequest(input: unknown) {
     const now = Date.now();
     const r: Reservation = {
       id: randomUUID(),
+      ...(identity
+        ? { customerId: identity.id, reviewStage: "documents_needed" as const }
+        : {}),
       quote: q,
       ...customer,
       status: "pending",
@@ -180,12 +238,17 @@ export async function createRequest(input: unknown) {
       revision: 1,
       demo: isDemo(),
     };
-    await query("INSERT INTO dcr_private.reservations VALUES($1,$2,$3,$4)", [r.id, payload.idempotencyKey, hash, r]);
-    await audit("request.created", r.id);
+    await query(
+      "INSERT INTO dcr_private.reservations(id,request_key,payload_hash,data,customer_id) VALUES($1,$2,$3,$4,$5)",
+      [r.id, payload.idempotencyKey, hash, r, identity?.id || null],
+    );
+    await audit("request.created", r.id, identity?.id || "guest");
+    if (identity) await notify(r, "received");
     return r;
   });
 }
 const settingsSchema = z.object({
+  policy: policySchema.optional(),
   taxBps: z.number().int().min(0).max(2000),
   surchargeCents: z.number().int().min(0).max(10000),
   deliveryCents: z.number().int().min(0).max(50000),
@@ -206,6 +269,7 @@ const adminSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("settings"), settings: settingsSchema }),
   z.object({
     action: z.literal("rate"),
+    policy: policySchema.optional(),
     vehicleId: z.string(),
     dailyCents: z.number().int().min(0).max(500000),
     enabled: z.boolean(),
@@ -232,7 +296,7 @@ const adminSchema = z.discriminatedUnion("action", [
     status: z.enum(["confirmed", "cancelled"]),
   }),
 ]);
-export async function adminAction(input: unknown) {
+export async function adminAction(input: unknown, actor = "owner:legacy") {
   const a = adminSchema.parse(input);
   return transaction(async () => {
     if (a.action === "settings") {
@@ -243,15 +307,42 @@ export async function adminAction(input: unknown) {
         throw new PilotError(
           "Policy, agreement, taxes, minimum age, and mileage must be configured before opening requests.",
         );
-      await query("UPDATE dcr_private.config SET data=$1 WHERE id='settings'", [{ ...a.settings, revision: s.revision + 1 }]);
-      await audit("settings.updated", "settings");
+      resolvePolicy(a.settings.policy);
+      await query(
+        "INSERT INTO dcr_private.setting_history VALUES($1,$2,$3,$4,$5)",
+        [randomUUID(), Date.now(), actor, "settings", s],
+      );
+      await query("UPDATE dcr_private.config SET data=$1 WHERE id='settings'", [
+        { ...a.settings, revision: s.revision + 1 },
+      ]);
+      await audit("settings.updated", "settings", actor);
     } else if (a.action === "rate") {
       if (a.enabled) assertDirect(a.vehicleId);
       const old = await config<FleetRate>("rate:" + a.vehicleId);
-      if (old.revision !== a.revision) throw new PilotError("Rate changed. Reload before saving.", 409);
-      if (a.enabled && a.dailyCents <= 0) throw new PilotError("An enabled car needs a positive daily rate.");
-      await query("UPDATE dcr_private.config SET data=$1 WHERE id=$2", [{vehicleId:a.vehicleId,dailyCents:a.dailyCents,enabled:a.enabled,revision:old.revision+1}, "rate:"+a.vehicleId]);
-      await audit("rate.updated", a.vehicleId);
+      if (old.revision !== a.revision)
+        throw new PilotError("Rate changed. Reload before saving.", 409);
+      if (
+        a.enabled &&
+        (a.policy?.dailyCents ??
+          (a.dailyCents || (await settings()).policy?.dailyCents || 0)) <= 0
+      )
+        throw new PilotError("An enabled car needs a positive daily rate.");
+      resolvePolicy((await settings()).policy, a.policy);
+      await query(
+        "INSERT INTO dcr_private.setting_history VALUES($1,$2,$3,$4,$5)",
+        [randomUUID(), Date.now(), actor, a.vehicleId, old],
+      );
+      await query("UPDATE dcr_private.config SET data=$1 WHERE id=$2", [
+        {
+          policy: a.policy,
+          vehicleId: a.vehicleId,
+          dailyCents: a.dailyCents,
+          enabled: a.enabled,
+          revision: old.revision + 1,
+        },
+        "rate:" + a.vehicleId,
+      ]);
+      await audit("rate.updated", a.vehicleId, actor);
     } else if (a.action === "block") {
       if (!vehicles.some((v) => v.id === a.trip.vehicleId))
         throw new PilotError("Vehicle not found.", 404);
@@ -266,6 +357,7 @@ export async function adminAction(input: unknown) {
           "A block needs a valid start and future end, within one year.",
         );
       const currentSettings = await settings();
+      const blockRate = await config<FleetRate>("rate:" + a.trip.vehicleId);
       if (
         (await reservations()).some(
           (r) =>
@@ -276,7 +368,12 @@ export async function adminAction(input: unknown) {
               endMs,
               r.quote.startMs,
               r.quote.endMs,
-              currentSettings.bufferMinutes,
+              Math.max(
+                currentSettings.bufferMinutes,
+                r.quote.policy?.bufferMinutes ?? 0,
+                resolvePolicy(currentSettings.policy, blockRate.policy)
+                  .bufferMinutes ?? 0,
+              ),
             ),
         )
       )
@@ -291,14 +388,17 @@ export async function adminAction(input: unknown) {
         endMs,
         reason: a.reason,
       };
-      await query("INSERT INTO dcr_private.blocks VALUES($1,$2)", [b.id,b]);
+      await query("INSERT INTO dcr_private.blocks VALUES($1,$2)", [b.id, b]);
       await audit("calendar.blocked", b.id);
     } else if (a.action === "removeBlock") {
-      const result = await query("DELETE FROM dcr_private.blocks WHERE id=$1 RETURNING id", [a.id]);
+      const result = await query(
+        "DELETE FROM dcr_private.blocks WHERE id=$1 RETURNING id",
+        [a.id],
+      );
       if (!result.rowCount) throw new PilotError("Block not found.", 404);
       await audit("calendar.unblocked", a.id);
     } else {
-      const r = (await reservations()).find(r => r.id === a.id);
+      const r = (await reservations()).find((r) => r.id === a.id);
       if (!r) throw new PilotError("Request not found.", 404);
       if (r.revision !== a.revision)
         throw new PilotError(
@@ -323,6 +423,35 @@ export async function adminAction(input: unknown) {
       } else {
         if (a.status === "confirmed") {
           assertDirect(r.quote.vehicleId);
+          if (r.customerId) {
+            if (r.reviewStage !== "approved")
+              throw new PilotError(
+                "Complete renter/document approval before confirmation.",
+                409,
+              );
+            const intake = (
+              await query(
+                "SELECT data FROM dcr_private.intakes WHERE request_id=$1",
+                [r.id],
+              )
+            ).rows[0]?.data;
+            const docs = (
+              await query(
+                "SELECT kind FROM dcr_private.documents WHERE request_id=$1 AND reviewed AND expires_at>$2",
+                [r.id, Date.now()],
+              )
+            ).rows.map((d) => d.kind);
+            if (
+              !intake?.reviewed ||
+              (
+                r.quote.policy?.requiredDocuments || ["license", "insurance"]
+              ).some((k) => !docs.includes(k))
+            )
+              throw new PilotError(
+                "Reviewed renter information and documents are required.",
+                409,
+              );
+          }
           if (r.holdUntil <= Date.now())
             throw new PilotError(
               "This request hold expired. Obtain a new quote and request.",
@@ -345,7 +474,8 @@ export async function adminAction(input: unknown) {
           if (
             !isDemo() &&
             (!launchReady(await settings()) ||
-              (r.quote.location === "airport" && !(await settings()).airportApproved))
+              (r.quote.location === "airport" &&
+                !(await settings()).airportApproved))
           )
             throw new PilotError("Launch approvals are incomplete.", 409);
           await assertAvailable(r.quote, r.id);
@@ -353,36 +483,50 @@ export async function adminAction(input: unknown) {
         r.status = a.status;
       }
       r.revision++;
-      await query("UPDATE dcr_private.reservations SET data=$1 WHERE id=$2", [r,r.id]);
+      await query("UPDATE dcr_private.reservations SET data=$1 WHERE id=$2", [
+        r,
+        r.id,
+      ]);
       await audit(
         a.action === "review" ? "review." + a.check : "request." + a.status,
         r.id,
+        actor,
       );
+      if (a.action === "status") await notify(r, a.status);
     }
   });
 }
 export async function publicState() {
   return transaction(async () => {
-  const s = await settings();
-  return {
-    demo: isDemo(),
-    open: isDemo() || launchReady(s),
-    airportOpen: isDemo() || s.airportApproved,
-    rates: (await rates()).map((r) => ({
-      vehicleId: r.vehicleId,
-      enabled: r.enabled && isDirectRental(r.vehicleId),
-      dailyCents: r.dailyCents,
-    })),
-    minimumAge: s.minimumAge,
-    mileage: s.mileage,
-  };
+    const s = await settings();
+    return {
+      demo: isDemo(),
+      open: isDemo() || launchReady(s),
+      airportOpen: isDemo() || s.airportApproved,
+      rates: (await rates()).map((r) => ({
+        vehicleId: r.vehicleId,
+        enabled: r.enabled && isDirectRental(r.vehicleId),
+        dailyCents:
+          r.policy?.dailyCents ?? (r.dailyCents || s.policy?.dailyCents || 0),
+      })),
+      minimumAge: s.minimumAge,
+      mileage: s.mileage,
+    };
   });
 }
 export async function adminState() {
   return transaction(async () => ({
-    demo: isDemo(), settings: await settings(), rates: await rates(),
-    reservations: (await reservations()).sort((a,b) => b.createdAt-a.createdAt),
+    demo: isDemo(),
+    settings: await settings(),
+    rates: await rates(),
+    reservations: (await reservations()).sort(
+      (a, b) => b.createdAt - a.createdAt,
+    ),
     blocks: await blocks(),
-    audit: (await query<{at:string;action:string;reference:string}>("SELECT at,action,reference FROM dcr_private.audit ORDER BY at DESC LIMIT 30")).rows.map(row => ({...row,at:Number(row.at)})),
+    audit: (
+      await query<{ at: string; action: string; reference: string }>(
+        "SELECT at,action,reference,actor,details FROM dcr_private.audit ORDER BY at DESC LIMIT 30",
+      )
+    ).rows.map((row) => ({ ...row, at: Number(row.at) })),
   }));
 }

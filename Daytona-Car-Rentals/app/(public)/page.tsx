@@ -29,8 +29,12 @@ export default function HomePage() {
             Find your car for a few days, a week or a monthly term.
           </p>
           <div className="hero-actions">
-            <JourneyLink className="journey-primary" href="/fleet">Browse cars</JourneyLink>
-            <JourneyLink className="journey-secondary" href="/assistant">Help me choose</JourneyLink>
+            <JourneyLink className="journey-primary" href="/fleet">
+              Browse cars
+            </JourneyLink>
+            <JourneyLink className="journey-secondary" href="/assistant">
+              Help me choose
+            </JourneyLink>
           </div>
           <PeriodChips />
           <div className="hero-location">
@@ -54,7 +58,6 @@ export default function HomePage() {
         </div>
         <div className="hero-search">
           <TripSearch />
-
         </div>
       </section>
       <section
@@ -116,8 +119,8 @@ export default function HomePage() {
               },
               {
                 n: "02",
-                title: "Verify",
-                text: "Share your contact details. We’ll arrange secure driver and insurance checks.",
+                title: "Sign in",
+                text: "Verify your email, then share renter information securely for owner review.",
               },
               {
                 n: "03",

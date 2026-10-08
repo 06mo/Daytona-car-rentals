@@ -1,4 +1,6 @@
 "use client";
+import { PortalReview } from "./PortalReview";
+import { PolicyFields, readPolicy } from "./PolicyFields";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
@@ -45,6 +47,7 @@ function RateRow({ rate, save }: { rate: FleetRate; save: Mutation }) {
         const f = new FormData(e.currentTarget);
         save({
           action: "rate",
+          policy: readPolicy(f),
           vehicleId: rate.vehicleId,
           dailyCents: Math.round(Number(f.get("daily")) * 100),
           enabled: f.get("enabled") === "on",
@@ -72,9 +75,15 @@ function RateRow({ rate, save }: { rate: FleetRate; save: Mutation }) {
         required
       />
       <label className="checkbox-row">
-        <input name="enabled" type="checkbox" disabled={!isDirectRental(v.id)} defaultChecked={isDirectRental(v.id) && rate.enabled} />
+        <input
+          name="enabled"
+          type="checkbox"
+          disabled={!isDirectRental(v.id)}
+          defaultChecked={isDirectRental(v.id) && rate.enabled}
+        />
         {isDirectRental(v.id) ? "Enable direct requests" : "Turo-only"}
       </label>
+      <PolicyFields policy={rate.policy} />
       <Button type="submit" variant="outline">
         Save rate
       </Button>
@@ -160,7 +169,10 @@ function SettingsForm({
         values.policyReference = String(f.get("policyReference"));
         values.agreementVersion = String(f.get("agreementVersion"));
         values.mileage = String(f.get("mileage"));
-        save({ action: "settings", settings: values });
+        save({
+          action: "settings",
+          settings: { ...values, policy: readPolicy(f) },
+        });
       }}
     >
       <h2>Operating rules</h2>
@@ -205,6 +217,7 @@ function SettingsForm({
           maxLength={100}
         />
       </div>
+      <PolicyFields policy={s.policy} />
       <h3>Launch approvals</h3>
       <p>
         Record the actual approvals first. These switches document your review;
@@ -615,7 +628,10 @@ export function PilotConsole() {
                 ))}
               </div>
               {chosen ? (
-                <ReviewPanel r={chosen} save={save} />
+                <>
+                  <ReviewPanel r={chosen} save={save} />
+                  <PortalReview r={chosen} reload={load} />
+                </>
               ) : (
                 <div className="panel empty-state">
                   Choose a request to review its readiness checklist.
@@ -628,9 +644,9 @@ export function PilotConsole() {
               <div className="notice">
                 <CarFront />
                 <span>
-                  Only the five direct-eligible cars, explicitly enabled with a positive rate, are offered
-                  for direct rental. Verify eligibility and actual fleet details
-                  before enabling.
+                  Only the five direct-eligible cars, explicitly enabled with a
+                  positive rate, are offered for direct rental. Verify
+                  eligibility and actual fleet details before enabling.
                 </span>
               </div>
               <div className="panel">
@@ -745,6 +761,7 @@ export function PilotConsole() {
           )}
           {tab === "audit" && (
             <div className="panel">
+              <PortalReview reload={load} />
               <h2>Recorded actions</h2>
               {state.audit.length ? (
                 state.audit.map((a, i) => (
@@ -756,7 +773,17 @@ export function PilotConsole() {
                       ET
                     </time>
                     <strong>{String(a.action)}</strong>
-                    <span>{String(a.reference)}</span>
+                    <span>
+                      {String(a.reference)} ·{" "}
+                      {String(
+                        (a as { actor?: string }).actor || "legacy owner",
+                      )}{" "}
+                      ·{" "}
+                      {String(
+                        (a as { details?: { reason?: string } }).details
+                          ?.reason || "",
+                      )}
+                    </span>
                   </div>
                 ))
               ) : (

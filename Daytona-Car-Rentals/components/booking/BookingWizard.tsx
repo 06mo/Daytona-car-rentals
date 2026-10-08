@@ -1,4 +1,5 @@
 "use client";
+import { SignIn } from "@/components/customer/SignIn";
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -19,7 +20,11 @@ import { vehicles, TURO_HOST_URL } from "@/lib/data/vehicles";
 import { money, type Quote, type TripInput } from "@/lib/pilot/model";
 
 import { directVehicles } from "@/lib/data/rentalChannels";
-import { monthlyTerms, readJourney, type RentalPeriod } from "@/lib/data/journey";
+import {
+  monthlyTerms,
+  readJourney,
+  type RentalPeriod,
+} from "@/lib/data/journey";
 import { JourneyLink, useJourney } from "@/components/journey/JourneyProvider";
 
 type PublicState = {
@@ -68,6 +73,19 @@ export function PriceSummary({ quote }: { quote: Quote }) {
         <dt>Security deposit, separate</dt>
         <dd>{money(quote.depositCents)}</dd>
       </div>
+      {quote.policy?.mileagePerDay != null && (
+        <div>
+          <dt>Included miles per day</dt>
+          <dd>{quote.policy.mileagePerDay}</dd>
+        </div>
+      )}
+      {quote.policy?.excessMileCents != null && (
+        <div>
+          <dt>Excess mileage per mile</dt>
+          <dd>{money(quote.policy.excessMileCents)}</dd>
+        </div>
+      )}
+      {quote.policy?.operationalTerms && <p>{quote.policy.operationalTerms}</p>}
       <p>
         No payment is taken with this request. Deposit and payment arrangements
         are reviewed before confirmation.
@@ -75,8 +93,18 @@ export function PriceSummary({ quote }: { quote: Quote }) {
     </dl>
   );
 }
-export function BookingWizard({ initial, initialPeriod }: { initial: Partial<TripInput>; initialPeriod: RentalPeriod }) {
+export function BookingWizard({
+  initial,
+  initialPeriod,
+}: {
+  initial: Partial<TripInput>;
+  initialPeriod: RentalPeriod;
+}) {
   const { update: updateJourney } = useJourney();
+  const [customerIdentity, setCustomerIdentity] = useState<{
+    id: string;
+    email: string;
+  } | null>(null);
   const [period, setPeriod] = useState(initialPeriod);
   const [state, setState] = useState<PublicState | null>(null),
     [step, setStep] = useState(1),
@@ -100,6 +128,7 @@ export function BookingWizard({ initial, initialPeriod }: { initial: Partial<Tri
     register,
     handleSubmit,
     getValues,
+    setValue,
     formState: { errors },
   } = useForm<Customer>({
     resolver: zodResolver(customerSchema),
@@ -109,8 +138,16 @@ export function BookingWizard({ initial, initialPeriod }: { initial: Partial<Tri
     // Native history edits can leave Next's cached server props behind the URL.
     const restore = () => {
       const saved = readJourney(new URLSearchParams(window.location.search));
-      const vehicleId = directVehicles.some(v => v.id === saved.vehicle) ? saved.vehicle! : directVehicles[0].id;
-      setTrip({ vehicleId, period: saved.period || "", start: saved.start || "", end: saved.end || "", location: saved.location === "airport" ? "airport" : "local" });
+      const vehicleId = directVehicles.some((v) => v.id === saved.vehicle)
+        ? saved.vehicle!
+        : directVehicles[0].id;
+      setTrip({
+        vehicleId,
+        period: saved.period || "",
+        start: saved.start || "",
+        end: saved.end || "",
+        location: saved.location === "airport" ? "airport" : "local",
+      });
       setPeriod(saved.period || "");
       quoteVersion.current++;
       setQuote(null);
@@ -121,9 +158,21 @@ export function BookingWizard({ initial, initialPeriod }: { initial: Partial<Tri
     };
     restore();
     window.addEventListener("popstate", restore);
-    return () => { window.removeEventListener("popstate", restore); quoteVersion.current++; };
+    return () => {
+      window.removeEventListener("popstate", restore);
+      quoteVersion.current++;
+    };
   }, []);
   useEffect(() => {
+    fetch("/api/customer/auth")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.customer) {
+          setCustomerIdentity(d.customer);
+          setValue("email", d.customer.email);
+        }
+      })
+      .catch(() => {});
     fetch("/api/pilot/quote")
       .then((r) => r.json())
       .then((data) => {
@@ -166,15 +215,26 @@ export function BookingWizard({ initial, initialPeriod }: { initial: Partial<Tri
       setQuote(data);
       key.current = crypto.randomUUID();
     } catch (e) {
-      if (version === quoteVersion.current) setError(e instanceof Error ? e.message : "Unable to quote this trip.");
+      if (version === quoteVersion.current)
+        setError(e instanceof Error ? e.message : "Unable to quote this trip.");
     } finally {
       if (version === quoteVersion.current) setBusy(false);
     }
   }
   async function submit() {
-    if (!quote || !accepted) return;
-    if (quote.vehicleId !== trip.vehicleId || quote.start !== trip.start || quote.end !== trip.end || quote.location !== trip.location || (quote.period || "") !== period) {
-      setQuote(null); setAccepted(false); setStep(1); setError("Your trip changed. Calculate a new quote before continuing."); return;
+    if (!quote || !accepted || !customerIdentity) return;
+    if (
+      quote.vehicleId !== trip.vehicleId ||
+      quote.start !== trip.start ||
+      quote.end !== trip.end ||
+      quote.location !== trip.location ||
+      (quote.period || "") !== period
+    ) {
+      setQuote(null);
+      setAccepted(false);
+      setStep(1);
+      setError("Your trip changed. Calculate a new quote before continuing.");
+      return;
     }
     setBusy(true);
     setError("");
@@ -190,7 +250,13 @@ export function BookingWizard({ initial, initialPeriod }: { initial: Partial<Tri
         }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
+      if (!response.ok) {
+        if (response.status === 401) {
+          setCustomerIdentity(null);
+          setStep(2);
+        }
+        throw new Error(data.error);
+      }
       setResult(data);
     } catch (e) {
       setError(
@@ -208,12 +274,14 @@ export function BookingWizard({ initial, initialPeriod }: { initial: Partial<Tri
           {result.demo ? "PREVIEW COMPLETE" : "REQUEST RECEIVED"}
         </p>
         <h1 ref={heading} tabIndex={-1}>
-          {result.demo ? "Preview request complete." : "Your trip is awaiting review."}
+          {result.demo
+            ? "Preview request complete."
+            : "Your trip is awaiting review."}
         </h1>
         <p>
           {result.demo
-            ? "This is a preview request. No personal details were saved, no payment was taken, and no car is reserved for you."
-            : "This is not a confirmed rental. Contact our team with your reference to arrange verification and the next steps. No automated email has been sent."}
+            ? "This is a preview request. Only synthetic renter records belong in this preview. No payment was taken and no car is reserved for you."
+            : "This is not a confirmed rental. Contact our team with your reference to arrange verification and the next steps. Sign in to My trips to provide the required information. Acknowledgment delivery is queued separately; it does not confirm your rental."}
         </p>
         <div className="reference">
           Reference <strong>{result.id}</strong>
@@ -226,8 +294,8 @@ export function BookingWizard({ initial, initialPeriod }: { initial: Partial<Tri
             protection, and channel checks.
           </span>
         </div>
-        <Button asChild href="/fleet">
-          Back to our cars
+        <Button asChild href="/my-trip">
+          View My trips
         </Button>
       </section>
     );
@@ -235,8 +303,9 @@ export function BookingWizard({ initial, initialPeriod }: { initial: Partial<Tri
     <section className="container booking-page">
       {state?.demo && (
         <div className="demo-banner">
-          Booking preview · Sample rates and policies. Enter sample contact
-          details. No personal details are saved.
+          Booking preview · Sample rates and policies. Use only synthetic renter
+          information and sample documents. Email sign-in is limited to approved
+          test recipients.
         </div>
       )}
       <div className="booking-header">
@@ -249,7 +318,7 @@ export function BookingWizard({ initial, initialPeriod }: { initial: Partial<Tri
               : "One last look."}
         </h1>
         <ol className="booking-progress" aria-label="Booking progress">
-          {["Choose", "Verify", "Review"].map((label, i) => (
+          {["Choose", "Contact", "Review"].map((label, i) => (
             <li
               key={label}
               aria-current={step === i + 1 ? "step" : undefined}
@@ -261,7 +330,9 @@ export function BookingWizard({ initial, initialPeriod }: { initial: Partial<Tri
           ))}
         </ol>
       </div>
-      <p className="small-note booking-intro">Your draft is unsent. Direct requests require approval.</p>
+      <p className="small-note booking-intro">
+        Your draft is unsent. Direct requests require approval.
+      </p>
       {error && (
         <div className="error-message" role="alert">
           {error}
@@ -286,7 +357,13 @@ export function BookingWizard({ initial, initialPeriod }: { initial: Partial<Tri
         state && (
           <div className="booking-grid">
             <div className="panel booking-main">
-              <p className="selected-car">Selected car: <strong>{vehicle.year} {vehicle.make} {vehicle.model}</strong> · {vehicle.color}</p>
+              <p className="selected-car">
+                Selected car:{" "}
+                <strong>
+                  {vehicle.year} {vehicle.make} {vehicle.model}
+                </strong>{" "}
+                · {vehicle.color}
+              </p>
               {step === 1 && (
                 <>
                   <form
@@ -295,7 +372,8 @@ export function BookingWizard({ initial, initialPeriod }: { initial: Partial<Tri
                       getQuote();
                     }}
                   >
-                    <details className="change-car"><summary>Change car</summary>
+                    <details className="change-car">
+                      <summary>Change car</summary>
                       <Select
                         id="vehicle"
                         label="Your car"
@@ -306,10 +384,52 @@ export function BookingWizard({ initial, initialPeriod }: { initial: Partial<Tri
                         value={trip.vehicleId}
                         onChange={(e) => update("vehicleId", e.target.value)}
                       />
-                      <JourneyLink className="text-link" href="/assistant" changes={{ vehicle: trip.vehicleId, period, start: trip.start, end: trip.end, location: trip.location }}>Help me choose</JourneyLink> · <JourneyLink className="text-link" href="/fleet" changes={{ vehicle: trip.vehicleId, period, start: trip.start, end: trip.end, location: trip.location }}>Browse cars</JourneyLink>
+                      <JourneyLink
+                        className="text-link"
+                        href="/assistant"
+                        changes={{
+                          vehicle: trip.vehicleId,
+                          period,
+                          start: trip.start,
+                          end: trip.end,
+                          location: trip.location,
+                        }}
+                      >
+                        Help me choose
+                      </JourneyLink>{" "}
+                      ·{" "}
+                      <JourneyLink
+                        className="text-link"
+                        href="/fleet"
+                        changes={{
+                          vehicle: trip.vehicleId,
+                          period,
+                          start: trip.start,
+                          end: trip.end,
+                          location: trip.location,
+                        }}
+                      >
+                        Browse cars
+                      </JourneyLink>
                     </details>
-                    <Select id="booking-period" label="Rental period" value={period} options={[{value:"",label:"Not sure yet"},{value:"short",label:"A few days"},{value:"weekly",label:"Weekly"},{value:"monthly",label:"Monthly"}]} onChange={(e) => { setPeriod(e.target.value as RentalPeriod); update("period", e.target.value); }} />
-                    {period === "monthly" && <p className="small-note renewal-note">{monthlyTerms}</p>}
+                    <Select
+                      id="booking-period"
+                      label="Rental period"
+                      value={period}
+                      options={[
+                        { value: "", label: "Not sure yet" },
+                        { value: "short", label: "A few days" },
+                        { value: "weekly", label: "Weekly" },
+                        { value: "monthly", label: "Monthly" },
+                      ]}
+                      onChange={(e) => {
+                        setPeriod(e.target.value as RentalPeriod);
+                        update("period", e.target.value);
+                      }}
+                    />
+                    {period === "monthly" && (
+                      <p className="small-note renewal-note">{monthlyTerms}</p>
+                    )}
                     <div className="form-grid">
                       <Input
                         id="pickup-time"
@@ -345,14 +465,35 @@ export function BookingWizard({ initial, initialPeriod }: { initial: Partial<Tri
                         value={trip.location}
                         onChange={(e) => update("location", e.target.value)}
                       />
-
                     </div>
                     <p className="small-note">
                       All times are Daytona Beach time (Eastern). Allow two
                       hours’ notice. Each started rental day is charged.
                     </p>
-                    {!state.rates.some((rate) => rate.vehicleId === trip.vehicleId && rate.enabled && rate.dailyCents > 0) && <p role="status">Direct requests for this car are unavailable pending operator configuration. Contact us or choose another car.</p>}
-                    <Button type="submit" loading={busy} disabled={!state.rates.some((rate) => rate.vehicleId === trip.vehicleId && rate.enabled && rate.dailyCents > 0)}>
+                    {!state.rates.some(
+                      (rate) =>
+                        rate.vehicleId === trip.vehicleId &&
+                        rate.enabled &&
+                        rate.dailyCents > 0,
+                    ) && (
+                      <p role="status">
+                        Direct requests for this car are unavailable pending
+                        operator configuration. Contact us or choose another
+                        car.
+                      </p>
+                    )}
+                    <Button
+                      type="submit"
+                      loading={busy}
+                      disabled={
+                        !state.rates.some(
+                          (rate) =>
+                            rate.vehicleId === trip.vehicleId &&
+                            rate.enabled &&
+                            rate.dailyCents > 0,
+                        )
+                      }
+                    >
                       See my trip total
                     </Button>
                   </form>
@@ -366,11 +507,20 @@ export function BookingWizard({ initial, initialPeriod }: { initial: Partial<Tri
                           setStep(2);
                         }}
                       >
-                        Continue to verify
+                        Continue to contact details
                       </Button>
                     </div>
                   )}
                 </>
+              )}
+              {step === 2 && !customerIdentity && (
+                <SignIn
+                  next={
+                    typeof window !== "undefined"
+                      ? window.location.pathname + window.location.search
+                      : undefined
+                  }
+                />
               )}
               {step === 2 && (
                 <form
@@ -383,7 +533,7 @@ export function BookingWizard({ initial, initialPeriod }: { initial: Partial<Tri
                     We’ll contact you to arrange driver and insurance
                     verification. A request is not a confirmed rental.
                   </p>
-                  <div className="form-grid">
+                  <fieldset disabled={!customerIdentity} className="form-grid">
                     <Input
                       label="Full name"
                       autoComplete="name"
@@ -396,6 +546,7 @@ export function BookingWizard({ initial, initialPeriod }: { initial: Partial<Tri
                       autoComplete="email"
                       type="email"
                       id="email"
+                      readOnly={Boolean(customerIdentity)}
                       {...register("email")}
                       error={errors.email?.message}
                     />
@@ -407,7 +558,7 @@ export function BookingWizard({ initial, initialPeriod }: { initial: Partial<Tri
                       {...register("phone")}
                       error={errors.phone?.message}
                     />
-                  </div>
+                  </fieldset>
                   <div className="honeypot" aria-hidden="true">
                     <input
                       tabIndex={-1}
@@ -444,9 +595,9 @@ export function BookingWizard({ initial, initialPeriod }: { initial: Partial<Tri
                     ))}
                   </div>
                   <p className="small-note">
-                    Do not email license images or insurance documents. Secure
-                    document collection will be arranged by our team.{" "}
-                    <Link href="/privacy">Privacy information</Link>
+                    Do not email license images or insurance documents. Use My
+                    trips to upload private documents after submitting your
+                    request. <Link href="/privacy">Privacy information</Link>
                   </p>
                   <div className="form-actions">
                     <Button
@@ -456,14 +607,18 @@ export function BookingWizard({ initial, initialPeriod }: { initial: Partial<Tri
                     >
                       Back
                     </Button>
-                    <Button type="submit">Continue to review</Button>
+                    <Button type="submit" disabled={!customerIdentity}>
+                      Continue to review
+                    </Button>
                   </div>
                 </form>
               )}
               {step === 3 && quote && (
                 <>
                   <div className="review-trip">
-                    <p>Rental period: {quote.period || "Dates selected below"}</p>
+                    <p>
+                      Rental period: {quote.period || "Dates selected below"}
+                    </p>
 
                     <p>
                       {quote.start.replace("T", " at ")} —{" "}
@@ -485,7 +640,8 @@ export function BookingWizard({ initial, initialPeriod }: { initial: Partial<Tri
                     <span>
                       Manual approval required. The team checks driver
                       eligibility, insurance and the shared Turo calendar before
-                      confirming. No payment is taken now. Any alternative vehicle requires your explicit acceptance.
+                      confirming. No payment is taken now. Any alternative
+                      vehicle requires your explicit acceptance.
                     </span>
                   </div>
                   <label className="checkbox-row">
@@ -518,7 +674,7 @@ export function BookingWizard({ initial, initialPeriod }: { initial: Partial<Tri
                     </Button>
                     <Button
                       type="button"
-                      disabled={!accepted}
+                      disabled={!accepted || !customerIdentity}
                       loading={busy}
                       onClick={submit}
                     >
@@ -551,7 +707,13 @@ export function BookingWizard({ initial, initialPeriod }: { initial: Partial<Tri
                   <span>trip total · {quote.days} rental days</span>
                 </>
               ) : (
-                <p>{busy ? "Calculating your quote…" : trip.start && trip.end ? "Select ‘See my trip total’ to calculate your quote." : "Choose pickup and return dates to calculate a quote."}</p>
+                <p>
+                  {busy
+                    ? "Calculating your quote…"
+                    : trip.start && trip.end
+                      ? "Select ‘See my trip total’ to calculate your quote."
+                      : "Choose pickup and return dates to calculate a quote."}
+                </p>
               )}
               <div className="aside-help">
                 <p>Need a hand?</p>
