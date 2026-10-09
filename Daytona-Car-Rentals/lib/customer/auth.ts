@@ -74,7 +74,7 @@ export function safeReturn(value: unknown) {
     return "/my-trip";
   // Only non-sensitive journey fields can survive in a link (no quote or contact details).
   const p = new URLSearchParams();
-  for (const k of ["vehicle", "start", "end", "period", "location"]) {
+  for (const k of ["vehicle", "start", "end", "period", "location", "draft", "step"]) {
     const v = u.searchParams.get(k);
     if (v && v.length < 100) p.set(k, v);
   }

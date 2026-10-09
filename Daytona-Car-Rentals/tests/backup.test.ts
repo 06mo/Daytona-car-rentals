@@ -64,7 +64,15 @@ test("read-only backup role bypasses FORCE RLS; non-bypass restore owner restore
     );
     await source.owner.query(
       "UPDATE dcr_private.outbox SET claim_token=$1,lease_until=$2,delivery=$3",
-      [randomUUID(), Date.now()+60000, JSON.stringify({from:"synthetic@example.invalid",to:["synthetic@example.invalid"],text:"Synthetic frozen delivery"})],
+      [
+        randomUUID(),
+        Date.now() + 60000,
+        JSON.stringify({
+          from: "synthetic@example.invalid",
+          to: ["synthetic@example.invalid"],
+          text: "Synthetic frozen delivery",
+        }),
+      ],
     );
     await source.owner.query("INSERT INTO dcr_private.intakes VALUES($1,$2)", [
       saved.id,
@@ -74,6 +82,25 @@ test("read-only backup role bypasses FORCE RLS; non-bypass restore owner restore
       "INSERT INTO dcr_private.documents(id,request_id,kind,content,created_at,expires_at) VALUES($1,$2,'license',$3,1,2)",
       [randomUUID(), saved.id, Buffer.from("synthetic backup bytes")],
     );
+    const draftId = randomUUID();
+    await source.owner.query(
+      "INSERT INTO dcr_private.customer_drafts(id,customer_id,data,created_at,expires_at) VALUES($1,$2,$3,1,2)",
+      [
+        draftId,
+        randomUUID(),
+        { intake: { legalName: "Synthetic saved draft" } },
+      ],
+    );
+    for (const current of [false, true])
+      await source.owner.query(
+        "INSERT INTO dcr_private.draft_documents(id,draft_id,kind,content,valid_until,created_at,current) VALUES($1,$2,'license',$3,'2040-01-01',1,$4)",
+        [
+          randomUUID(),
+          draftId,
+          Buffer.from("synthetic draft version " + current),
+          current,
+        ],
+      );
     await source.owner.query(
       "INSERT INTO dcr_private.auth_intents VALUES('synthetic-intent','/my-trip',1)",
     );
@@ -185,6 +212,8 @@ test("read-only backup role bypasses FORCE RLS; non-bypass restore owner restore
       "auth_intents",
       "intakes",
       "documents",
+      "customer_drafts",
+      "draft_documents",
       "claims",
       "outbox",
       "setting_history",

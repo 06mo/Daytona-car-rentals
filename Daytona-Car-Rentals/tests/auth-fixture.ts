@@ -6,7 +6,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 export async function authFixture() {
-  if (process.env.VERCEL || ["preview", "production"].includes(process.env.VERCEL_ENV || "")) throw new Error("Local Auth fixtures cannot run in hosted environments.");
+  if (
+    process.env.VERCEL ||
+    ["preview", "production"].includes(process.env.VERCEL_ENV || "")
+  )
+    throw new Error("Local Auth fixtures cannot run in hosted environments.");
   const directory = mkdtempSync(join(tmpdir(), "dcr-auth-"));
   const cert = join(directory, "cert.pem"),
     key = join(directory, "key.pem");
@@ -42,6 +46,7 @@ export async function authFixture() {
     user_metadata: {},
   };
   const tokens = new Map<string, typeof user>();
+  const isolatedUsers = new Map<string, typeof user>();
   const refreshes = new Map<string, typeof user>();
   const links = new Map<string, { email: string; redirect: string }>();
   let lastLink = "";
@@ -123,19 +128,26 @@ export async function authFixture() {
         return send(204, {});
       }
       // Control endpoints are available only on this loopback test server, never in application routes.
-      if (url.pathname === "/fixture/session")
-        return send(
-          200,
-          session(
-            url.searchParams.has("other")
-              ? {
-                  ...user,
-                  id: "22222222-2222-4222-8222-222222222222",
-                  email: "other@example.invalid",
-                }
-              : user,
-          ),
-        );
+      if (url.pathname === "/fixture/session") {
+        const namespace = url.searchParams.get("test");
+        let u = url.searchParams.has("other")
+          ? {
+              ...user,
+              id: "22222222-2222-4222-8222-222222222222",
+              email: "other@example.invalid",
+            }
+          : user;
+        // Independent browser cases do not share draft quotas or upload rate limits.
+        // This control remains loopback-only, behind the existing hosted-mode refusal.
+        if (namespace) {
+          const key =
+            namespace + (url.searchParams.has("other") ? ":other" : ":primary");
+          if (!isolatedUsers.has(key))
+            isolatedUsers.set(key, { ...u, id: randomUUID() });
+          u = isolatedUsers.get(key)!;
+        }
+        return send(200, session(u));
+      }
       if (url.pathname === "/fixture/link")
         return send(200, { link: lastLink });
       return send(404, {});

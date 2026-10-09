@@ -1,4 +1,8 @@
-import { customerSession } from "./auth-helper";
+import {
+  customerSession,
+  completeDriver,
+  preparedRequest,
+} from "./auth-helper";
 import { test, expect, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 const origin = "http://127.0.0.1:3000";
@@ -25,7 +29,9 @@ test("desktop and mobile homepage are usable without overflow", async ({
   await expect(
     page.getByRole("heading", { name: /Your days. Your plans/ }),
   ).toBeVisible();
-  await expect(page.locator(".hero-actions").getByRole("link", { name: "Browse cars" })).toBeVisible();
+  await expect(
+    page.locator(".hero-actions").getByRole("link", { name: "Browse cars" }),
+  ).toBeVisible();
   await readyImages(page);
   await page.screenshot({
     path: "test-results/desktop-home.png",
@@ -33,7 +39,9 @@ test("desktop and mobile homepage are usable without overflow", async ({
   });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
-  await expect(page.locator(".hero-actions").getByRole("link", { name: "Browse cars" })).toBeVisible();
+  await expect(
+    page.locator(".hero-actions").getByRole("link", { name: "Browse cars" }),
+  ).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -59,13 +67,18 @@ test("three-screen request flow shows totals and never claims confirmation", asy
   await page.getByLabel("Return date & time").fill("2030-10-04T10:00");
   await page.getByRole("button", { name: "See my trip total" }).click();
   await expect(page.getByText("Trip total", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Continue to contact details" }).click();
+  await page
+    .getByRole("button", { name: "Continue to driver & documents" })
+    .click();
   await expect(
     page.getByRole("heading", { name: "Let’s get you ready." }),
   ).toBeVisible();
   await page.getByLabel("Full name").fill("Sample Renter");
-  await expect(page.getByLabel("Email", { exact: true })).toHaveValue("renter@example.invalid");
+  await expect(page.getByLabel("Email", { exact: true })).toHaveValue(
+    "renter@example.invalid",
+  );
   await page.getByLabel("Phone", { exact: true }).fill("3865550100");
+  await completeDriver(page);
   await page.getByRole("button", { name: "Continue to review" }).click();
   await expect(
     page.getByRole("heading", { name: "One last look." }),
@@ -120,7 +133,7 @@ test("competing submissions atomically allocate one internal hold", async ({
   page,
 }) => {
   await customerSession(page.context());
-  const request=page.request;
+  const request = page.request;
   const trip = {
     vehicleId: "ecosport-3580557",
     start: "2030-11-01T10:00",
@@ -139,21 +152,18 @@ test("competing submissions atomically allocate one internal hold", async ({
       data: trip,
     })
   ).json();
-  const submit = (id: string) =>
-    request.post("/api/pilot/requests", {
-      headers: { Origin: origin },
-      data: {
-        quoteId: id,
-        idempotencyKey: randomUUID(),
-        name: "Sample Renter",
-        email: "sample@example.invalid",
-        phone: "3865550100",
-        acknowledged: true,
-        website: "",
-        totalCents: 1,
-      },
-    });
-  const responses = await Promise.all([submit(q1.id), submit(q2.id)]);
+  const payloads = [
+    await preparedRequest(page, q1),
+    await preparedRequest(page, q2),
+  ];
+  const responses = await Promise.all(
+    payloads.map((data) =>
+      request.post("/api/pilot/requests", {
+        headers: { Origin: origin },
+        data,
+      }),
+    ),
+  );
   expect(responses.map((r) => r.status()).sort()).toEqual([201, 409]);
 });
 test("authenticated operator can change a rate and see readiness gates", async ({
@@ -185,23 +195,40 @@ test("authenticated operator can change a rate and see readiness gates", async (
   await page
     .getByRole("button", { name: "Fleet & rates", exact: true })
     .click();
-  const row = page.locator("form.rate-row").filter({ has: page.locator("#corolla-3275798-daily") });
+  const row = page
+    .locator("form.rate-row")
+    .filter({ has: page.locator("#corolla-3275798-daily") });
   await row.getByLabel("Daily rate ($)").fill("59.00");
   await row.getByRole("button", { name: "Save rate" }).click();
   await expect(page.getByRole("status")).toContainText("Saved.");
   // Use the browser context: Chromium trusts loopback for Secure cookies, unlike APIRequestContext over HTTP.
-  const state = await page.evaluate(async () => (await fetch("/api/admin/state")).json());
-  expect(state.rates.find((r: {vehicleId:string}) => r.vehicleId === "corolla-3275798").dailyCents).toBe(5900);
+  const state = await page.evaluate(async () =>
+    (await fetch("/api/admin/state")).json(),
+  );
+  expect(
+    state.rates.find(
+      (r: { vehicleId: string }) => r.vehicleId === "corolla-3275798",
+    ).dailyCents,
+  ).toBe(5900);
   const pending = state.reservations.find(
     (r: { status: string }) => r.status === "pending",
   );
-  const result = await page.evaluate(async ({id, revision}) => {
-    const response = await fetch("/api/admin/state", {
-      method: "POST", headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({action:"status",id,revision,status:"confirmed"}),
-    });
-    return {status: response.status, data: await response.json()};
-  }, {id: pending.id, revision: pending.revision});
+  const result = await page.evaluate(
+    async ({ id, revision }) => {
+      const response = await fetch("/api/admin/state", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "status",
+          id,
+          revision,
+          status: "confirmed",
+        }),
+      });
+      return { status: response.status, data: await response.json() };
+    },
+    { id: pending.id, revision: pending.revision },
+  );
   expect(result.status).toBe(409);
   expect(result.data.error).toMatch(/release check|renter\/document approval/);
   await page.getByRole("button", { name: "Sign out" }).click();

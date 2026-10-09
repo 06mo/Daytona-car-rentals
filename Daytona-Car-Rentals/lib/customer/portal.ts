@@ -1,4 +1,6 @@
 import "server-only";
+import { date, intakeSchema } from "./intake";
+export { date, intakeSchema } from "./intake";
 import { randomUUID } from "node:crypto";
 import sharp from "sharp";
 import { z } from "zod";
@@ -112,21 +114,6 @@ export async function trips(user: CustomerIdentity) {
     return list;
   });
 }
-const date = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/)
-  .refine((s) => {
-    const d = new Date(s + "T12:00:00Z");
-    return !isNaN(+d) && d.toISOString().slice(0, 10) === s;
-  }, "Enter a valid date.");
-export const intakeSchema = z.object({
-  legalName: z.string().trim().min(2).max(100),
-  birthDate: date,
-  licenseRegion: z.string().trim().min(2).max(80),
-  licenseExpiry: date,
-  address: z.string().trim().min(8).max(300),
-  confirmed: z.literal(true),
-});
 export async function saveIntake(
   user: CustomerIdentity,
   id: string,
@@ -168,13 +155,7 @@ export async function persist(r: Reservation) {
     r.id,
   ]);
 }
-export async function uploadDocument(
-  user: CustomerIdentity,
-  id: string,
-  kind: unknown,
-  base64: unknown,
-) {
-  const k = z.enum(["license", "insurance"]).parse(kind);
+export async function documentImage(base64: unknown) {
   const raw = z
     .string()
     .max(2800000)
@@ -205,6 +186,18 @@ export async function uploadDocument(
       "Upload a readable, single JPEG or PNG image up to 2 MB and 16 megapixels.",
     );
   }
+  return content;
+}
+export async function uploadDocument(
+  user: CustomerIdentity,
+  id: string,
+  kind: unknown,
+  base64: unknown,
+  validUntil?: unknown,
+) {
+  const k = z.enum(["license", "insurance"]).parse(kind);
+  const valid = validUntil == null ? null : date.parse(validUntil);
+  const content = await documentImage(base64);
   return transaction(async () => {
     const r = await owned(id, user);
     editable(r);
@@ -213,6 +206,10 @@ export async function uploadDocument(
       "INSERT INTO dcr_private.documents(id,request_id,kind,content,created_at,expires_at) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(request_id,kind) DO UPDATE SET id=$1,content=$4,created_at=$5,expires_at=$6,reviewed=false",
       [docId, id, k, content, Date.now(), r.quote.endMs + 30 * 86400000],
     );
+    await query("UPDATE dcr_private.documents SET valid_until=$1 WHERE id=$2", [
+      valid,
+      docId,
+    ]);
     for (const key of (k === "license"
       ? ["license", "mvr", "agreement"]
       : [
@@ -397,6 +394,10 @@ export async function portalReview(input: unknown, actor: string) {
         "DELETE FROM dcr_private.documents WHERE expires_at<=$1",
         [Date.now()],
       );
+      await query(
+        "DELETE FROM dcr_private.customer_drafts WHERE expires_at<=$1",
+        [Date.now()],
+      );
       await recordAudit("documents.retention-purge", String(n.rowCount), actor);
       return;
     }
@@ -451,7 +452,7 @@ export async function portalReview(input: unknown, actor: string) {
       if (!intake?.confirmed)
         throw new PilotError("Confirmed renter information is required.");
       const birth = new Date(intake.birthDate + "T12:00:00Z"),
-        at = new Date(r.quote.start.slice(0,10)+"T12:00:00Z");
+        at = new Date(r.quote.start.slice(0, 10) + "T12:00:00Z");
       let age = at.getUTCFullYear() - birth.getUTCFullYear();
       if (
         at.getUTCMonth() < birth.getUTCMonth() ||
@@ -461,7 +462,8 @@ export async function portalReview(input: unknown, actor: string) {
         age--;
       if (
         age < r.quote.minimumAge ||
-        (r.quote.policy?.maximumAge != null && age > r.quote.policy.maximumAge) ||
+        (r.quote.policy?.maximumAge != null &&
+          age > r.quote.policy.maximumAge) ||
         daytonaTime(intake.licenseExpiry + "T23:59") < r.quote.endMs
       )
         throw new PilotError(
@@ -554,19 +556,30 @@ export async function agreementFields(id: string, actor: string) {
       !r ||
       !intake?.reviewed ||
       r.reviewStage !== "approved" ||
-      !(r.status === "confirmed" || (r.status === "pending" && r.holdUntil > Date.now()))
+      !(
+        r.status === "confirmed" ||
+        (r.status === "pending" && r.holdUntil > Date.now())
+      )
     )
       throw new PilotError(
         "Reviewed, approved records are required before mapping agreement fields.",
         409,
       );
-    const documents = (await query(
-      "SELECT kind FROM dcr_private.documents WHERE request_id=$1 AND reviewed AND expires_at>$2",
-      [id, Date.now()],
-    )).rows;
-    if ((r.quote.policy?.requiredDocuments || ["license", "insurance"]).some(
-      kind => !documents.some(document => document.kind === kind),
-    )) throw new PilotError("Current reviewed documents are required before generating agreement fields.", 409);
+    const documents = (
+      await query(
+        "SELECT kind FROM dcr_private.documents WHERE request_id=$1 AND reviewed AND expires_at>$2",
+        [id, Date.now()],
+      )
+    ).rows;
+    if (
+      (r.quote.policy?.requiredDocuments || ["license", "insurance"]).some(
+        (kind) => !documents.some((document) => document.kind === kind),
+      )
+    )
+      throw new PilotError(
+        "Current reviewed documents are required before generating agreement fields.",
+        409,
+      );
     // This is fresh field generation, never retrieval of an executed agreement.
     await recordAudit("agreement.fields", id, actor);
     return {

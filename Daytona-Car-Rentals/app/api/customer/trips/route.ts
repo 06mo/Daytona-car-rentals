@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { body, responseError, limit } from "@/lib/pilot/http";
+import { listDrafts } from "@/lib/customer/drafts";
 import { requireCustomer } from "@/lib/customer/auth";
 import {
   trips,
@@ -11,8 +12,9 @@ import {
 export const runtime = "nodejs";
 export async function GET() {
   try {
+    const customer = await requireCustomer();
     return NextResponse.json(
-      { trips: await trips(await requireCustomer()) },
+      { trips: await trips(customer), drafts: await listDrafts(customer) },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (e) {
@@ -24,6 +26,7 @@ export async function POST(r: Request) {
     const a = await body(r),
       u = await requireCustomer();
     await limit("portal:" + u.id, 60, 3600000);
+    if (a.action === "refresh") return NextResponse.json({ ok: true });
     if (a.action === "intake") await saveIntake(u, a.id, a.intake);
     else if (a.action === "submit") await submitIntake(u, a.id);
     else if (a.action === "alternative")

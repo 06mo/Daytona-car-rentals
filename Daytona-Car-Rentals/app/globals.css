@@ -542,6 +542,7 @@ button:disabled {
   margin: 30px 0;
 }
 .booking-header h1 {
+  scroll-margin-top: 112px;
   outline: none;
 }
 .booking-progress {
@@ -1502,3 +1503,26 @@ summary:focus-visible, [tabindex="-1"]:focus-visible { outline:3px solid var(--t
 
 .captured-email { white-space:pre-wrap; overflow-wrap:anywhere; font:inherit; }
 @media(max-width:400px) { .review-panel .form-actions { flex-direction:column; } .review-panel .form-actions button { height:auto; min-height:44px; padding-block:10px; width:100%; } }
+/* Reuse coastal form surfaces for private draft intake. */
+.document-upload { margin-block: 1rem; }
+.document-upload fieldset, [aria-label="Private driver draft"] fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.document-upload label { display: grid; gap: .4rem; margin-block: .8rem; }
+.document-upload .checkbox-row { display: flex; }
+.document-upload input[type="file"] { max-width: 100%; width: 100%; }
+.document-upload progress { width: 100%; accent-color: var(--teal, #126b68); }
+[aria-label="Private driver draft"] { min-width: 0; }
+[aria-label="Private driver draft"] .date-actions { flex-wrap: wrap; overflow-wrap: anywhere; }
+.price-summary dd { overflow-wrap: anywhere; }
+@media(max-width: 420px) { .booking-progress li { font-size: .75rem; min-width: 0; } .booking-progress { gap: .35rem; } }
+[aria-label="Private driver draft"] .form-grid > label,
+.document-upload label { display: grid; gap: .4rem; font-size: .9rem; font-weight: 600; }
+[aria-label="Private driver draft"] input:not([type="checkbox"]),
+.document-upload input:not([type="checkbox"]), .document-upload select {
+  width: 100%; min-width: 0; border: 1px solid #a7b8be; border-radius: .45rem;
+  padding: .7rem .75rem; background: #fff; color: #153747; font: inherit;
+}
+[aria-label="Private driver draft"] legend { font-weight: 700; margin-bottom: .8rem; }
+[aria-label="Private driver draft"] h3 { margin-top: 1.5rem; }
+[aria-label="Private driver draft"] .date-actions { display: flex; gap: .6rem; margin-block: .8rem; }
+[aria-label="Private driver draft"] .date-actions button { border: 1px solid #8aa4ac; padding: .45rem .7rem; border-radius: .4rem; }
+[aria-label="Private driver draft"] .form-actions { flex-wrap: wrap; gap: .75rem; }

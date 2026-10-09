@@ -17,7 +17,7 @@ export async function enqueue(
       : event === "confirmed"
         ? "Rental confirmed"
         : "Rental request update",
-    text: `${event === "received" ? "Request received—your trip is not confirmed." : event === "confirmed" ? "Your rental has been confirmed after owner review." : event === "documents" ? "Your renter information was updated; this message is not a confirmation." : "Your request status has changed; this message is not a confirmation."}\nReference: ${r.id}\n${car?.year} ${car?.make} ${car?.model}\n${r.quote.start} to ${r.quote.end} (Eastern)\nNext: ${owner ? "Review the request and required checks." : event === "received" ? "Sign in and provide the required renter information." : "Sign in to review the next required action."}\n${process.env.DCR_SITE_ORIGIN || ""}${owner ? "/admin" : "/my-trip"}`,
+    text: `${event === "received" ? "Request received—your trip is not confirmed." : event === "confirmed" ? "Your rental has been confirmed after owner review." : event === "documents" ? "Your renter information was updated; this message is not a confirmation." : "Your request status has changed; this message is not a confirmation."}\nReference: ${r.id}\n${car?.year} ${car?.make} ${car?.model}\n${r.quote.start} to ${r.quote.end} (Eastern)\nNext: ${owner ? "Review the request and required checks." : event === "received" ? "View your request status and next required action in My trips." : "Sign in to review the next required action."}\n${process.env.DCR_SITE_ORIGIN || ""}${owner ? "/admin" : "/my-trip"}`,
   };
   await query(
     "INSERT INTO dcr_private.outbox(id,event_key,recipient,payload,created_at) VALUES($1,$2,$3,$4,$5) ON CONFLICT(event_key) DO NOTHING",

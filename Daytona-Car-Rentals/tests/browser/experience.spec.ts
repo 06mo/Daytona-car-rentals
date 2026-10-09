@@ -82,6 +82,7 @@ test("server date errors are visible and recoverable; quote is not a confirmatio
 test("mobile menu supports keyboard, Escape, destination focus and support links", async ({page}) => {
   await page.setViewportSize({width:390,height:844});
   await page.goto("/");
+  await page.waitForLoadState("networkidle");
   const toggle=page.getByRole("button",{name:"Toggle navigation"});
   await toggle.focus(); await page.keyboard.press("Enter");
   await expect(toggle).toHaveAttribute("aria-expanded","true");

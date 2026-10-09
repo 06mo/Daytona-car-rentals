@@ -1,18 +1,11 @@
 "use client";
+import { DraftEditor, type DraftView } from "@/components/customer/DraftEditor";
+import { IntakeSummary } from "@/components/customer/IntakeFields";
 import { SignIn } from "@/components/customer/SignIn";
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import {
-  CheckCircle2,
-  Clock3,
-  FileCheck2,
-  ShieldCheck,
-  UserRound,
-} from "lucide-react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { CheckCircle2, Clock3 } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
@@ -35,13 +28,6 @@ type PublicState = {
   minimumAge: number;
   mileage: string;
 };
-const customerSchema = z.object({
-  name: z.string().trim().min(2, "Enter your full name.").max(100),
-  email: z.string().email("Enter a valid email address."),
-  phone: z.string().regex(/^[+\d ()-]{7,30}$/, "Enter a valid phone number."),
-  website: z.string().max(0),
-});
-type Customer = z.infer<typeof customerSchema>;
 export function PriceSummary({ quote }: { quote: Quote }) {
   return (
     <dl className="price-summary">
@@ -109,6 +95,9 @@ export function BookingWizard({
     id: string;
     email: string;
   } | null>(null);
+  const [editorStarted, setEditorStarted] = useState(false);
+  const [draftKey, setDraftKey] = useState("");
+  const [draft, setDraft] = useState<DraftView | null>(null);
   const [period, setPeriod] = useState(initialPeriod);
   const [state, setState] = useState<PublicState | null>(null),
     [step, setStep] = useState(1),
@@ -124,25 +113,21 @@ export function BookingWizard({
     location: initial.location || "local",
     period: initialPeriod,
   });
+  useEffect(() => {
+    if (step === 2) setEditorStarted(true);
+  }, [step]);
   const quoteVersion = useRef(0);
   const previousStep = useRef(1);
   const key = useRef(""),
     heading = useRef<HTMLHeadingElement>(null);
-  const {
-    register,
-    handleSubmit,
-    getValues,
-    watch,
-    setValue,
-    formState: { errors },
-  } = useForm<Customer>({
-    resolver: zodResolver(customerSchema),
-    defaultValues: { name: "", email: "", phone: "", website: "" },
-  });
   useEffect(() => {
     // Native history edits can leave Next's cached server props behind the URL.
     const restore = () => {
       const saved = readJourney(new URLSearchParams(window.location.search));
+      setDraftKey(
+        new URLSearchParams(window.location.search).get("draft") || "",
+      );
+      setDraft(null);
       const vehicleId = directVehicles.some((v) => v.id === saved.vehicle)
         ? saved.vehicle!
         : directVehicles[0].id;
@@ -159,7 +144,9 @@ export function BookingWizard({
       setAccepted(false);
       setBusy(false);
       setError("");
-      setStep(1);
+      setStep(
+        new URLSearchParams(window.location.search).get("step") === "2" ? 2 : 1,
+      );
     };
     restore();
     window.addEventListener("popstate", restore);
@@ -174,18 +161,6 @@ export function BookingWizard({
       .then((d) => {
         if (d.customer) {
           setCustomerIdentity(d.customer);
-          setValue("email", d.customer.email);
-          try {
-            const saved = JSON.parse(
-              sessionStorage.getItem("dcr-contact-draft") || "null",
-            );
-            if (saved?.owner === d.customer.id && saved.expires > Date.now()) {
-              setValue("name", String(saved.name || "").slice(0, 100));
-              setValue("phone", String(saved.phone || "").slice(0, 30));
-            } else sessionStorage.removeItem("dcr-contact-draft");
-          } catch {
-            /* Browser storage is optional; browsing/forms still work. */
-          }
         }
       })
       .catch(() => {});
@@ -200,26 +175,36 @@ export function BookingWizard({
       );
   }, []);
   useEffect(() => {
-    if (step !== previousStep.current || result) heading.current?.focus();
+    if (step !== previousStep.current || result) {
+      heading.current?.focus({ preventScroll: true });
+      heading.current?.scrollIntoView({ block: "start" });
+    }
     previousStep.current = step;
   }, [step, result]);
   useEffect(() => {
-    if (!customerIdentity || result) return;
-    const subscription = watch((values) => {
+    let active = true;
+    const verify = async () => {
       try {
-        sessionStorage.setItem(
-          "dcr-contact-draft",
-          JSON.stringify({
-            owner: customerIdentity.id,
-            name: values.name,
-            phone: values.phone,
-            expires: Date.now() + 30 * 60000,
-          }),
-        );
-      } catch {}
-    });
-    return () => subscription.unsubscribe();
-  }, [customerIdentity, result, watch]);
+        const r = await fetch("/api/customer/auth", { cache: "no-store" });
+        const d = await r.json();
+        if (active && d.customer?.id !== customerIdentity?.id) {
+          setDraft(null);
+          setAccepted(false);
+          setCustomerIdentity(d.customer || null);
+        }
+      } catch {
+        if (active) {
+          setDraft(null);
+          setCustomerIdentity(null);
+        }
+      }
+    };
+    window.addEventListener("focus", verify);
+    return () => {
+      active = false;
+      window.removeEventListener("focus", verify);
+    };
+  }, [customerIdentity?.id]);
   const vehicle = vehicles.find((v) => v.id === trip.vehicleId)!;
   const update = (field: keyof TripInput, value: string) => {
     quoteVersion.current++;
@@ -255,7 +240,7 @@ export function BookingWizard({
     }
   }
   async function submit() {
-    if (!quote || !accepted || !customerIdentity) return;
+    if (!quote || !accepted || !customerIdentity || !draft) return;
     if (
       quote.vehicleId !== trip.vehicleId ||
       quote.start !== trip.start ||
@@ -276,7 +261,9 @@ export function BookingWizard({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...getValues(),
+          draftId: draft.id,
+          draftRevision: draft.revision,
+          website: "",
           quoteId: quote.id,
           idempotencyKey: key.current,
           acknowledged: true,
@@ -287,6 +274,11 @@ export function BookingWizard({
         if (response.status === 401) {
           setCustomerIdentity(null);
           setStep(2);
+        }
+        if (response.status === 409) {
+          setQuote(null);
+          setAccepted(false);
+          setStep(1);
         }
         throw new Error(data.error);
       }
@@ -317,7 +309,7 @@ export function BookingWizard({
         <p>
           {result.demo
             ? "This is a preview request. Only synthetic renter records belong in this preview. No payment was taken and no car is reserved for you."
-            : "This is not a confirmed rental. Contact our team with your reference to arrange verification and the next steps. Sign in to My trips to provide the required information. Acknowledgment delivery is queued separately; it does not confirm your rental."}
+            : "This is not a confirmed rental. Contact our team with your reference to arrange verification and the next steps. Your renter information and documents have been submitted for review. Use My trips for status and corrections. Acknowledgment delivery is queued separately; it does not confirm your rental."}
         </p>
         <div className="reference">
           Reference <strong>{result.id}</strong>
@@ -354,7 +346,7 @@ export function BookingWizard({
               : "One last look."}
         </h1>
         <ol className="booking-progress" aria-label="Booking progress">
-          {["Choose", "Contact", "Review"].map((label, i) => (
+          {["Choose", "Driver & documents", "Review"].map((label, i) => (
             <li
               key={label}
               aria-current={step === i + 1 ? "step" : undefined}
@@ -540,10 +532,13 @@ export function BookingWizard({
                         type="button"
                         onClick={() => {
                           setError("");
+                          const url = new URL(window.location.href);
+                          url.searchParams.set("step", "2");
+                          window.history.replaceState(null, "", url);
                           setStep(2);
                         }}
                       >
-                        Continue to contact details
+                        Continue to driver & documents
                       </Button>
                     </div>
                   )}
@@ -558,96 +553,44 @@ export function BookingWizard({
                   }
                 />
               )}
-              {step === 2 && (
-                <form
-                  onSubmit={handleSubmit(() => {
-                    setError("");
+              {customerIdentity && (editorStarted || step === 2) && (
+                <DraftEditor
+                  key={customerIdentity.id + ":" + draftKey}
+                  user={customerIdentity}
+                  trip={trip}
+                  active={step === 2}
+                  demo={state.demo}
+                  onSaved={setDraft}
+                  onAuthLost={() => {
+                    setCustomerIdentity(null);
+                    setDraft(null);
+                    setStep(2);
+                  }}
+                  onReady={() => {
+                    setAccepted(false);
                     setStep(3);
-                  })}
+                  }}
+                />
+              )}
+              {step === 2 && (
+                <Button
+                  variant="outline"
+                  type="button"
+                  onClick={() => setStep(1)}
                 >
+                  Back
+                </Button>
+              )}
+              {step === 3 && !quote && (
+                <div>
                   <p>
-                    We’ll contact you to arrange driver and insurance
-                    verification. A request is not a confirmed rental.
+                    Your documents are saved. Calculate a fresh quote before
+                    reviewing and accepting the total.
                   </p>
-                  <fieldset disabled={!customerIdentity} className="form-grid">
-                    <Input
-                      label="Full name"
-                      autoComplete="name"
-                      id="name"
-                      {...register("name")}
-                      error={errors.name?.message}
-                    />
-                    <Input
-                      label="Email"
-                      autoComplete="email"
-                      type="email"
-                      id="email"
-                      readOnly={Boolean(customerIdentity)}
-                      {...register("email")}
-                      error={errors.email?.message}
-                    />
-                    <Input
-                      label="Phone"
-                      autoComplete="tel"
-                      type="tel"
-                      id="phone"
-                      {...register("phone")}
-                      error={errors.phone?.message}
-                    />
-                  </fieldset>
-                  <div className="honeypot" aria-hidden="true">
-                    <input
-                      tabIndex={-1}
-                      autoComplete="off"
-                      {...register("website")}
-                    />
-                  </div>
-                  <div className="verification-list">
-                    {[
-                      {
-                        icon: UserRound,
-                        title: "Driver’s license & driving record",
-                        text: `Minimum age ${quote?.minimumAge || "to be confirmed"}. All drivers require review. Driving-record consent will be collected separately.`,
-                      },
-                      {
-                        icon: ShieldCheck,
-                        title: "Qualifying renter insurance",
-                        text: "We verify your coverage before confirming. An insurance card alone does not establish rental coverage.",
-                      },
-                      {
-                        icon: FileCheck2,
-                        title: "Agreement & trip protection",
-                        text: "The approved rental agreement and any required protection must be completed before vehicle release.",
-                      },
-                    ].map(({ icon: Icon, title, text }) => (
-                      <div key={title}>
-                        <Icon />
-                        <span>
-                          <strong>{title}</strong>
-                          <small>{text}</small>
-                        </span>
-                        <span className="status-pill">Pending</span>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="small-note">
-                    Do not email license images or insurance documents. Use My
-                    trips to upload private documents after submitting your
-                    request. <Link href="/privacy">Privacy information</Link>
-                  </p>
-                  <div className="form-actions">
-                    <Button
-                      variant="outline"
-                      type="button"
-                      onClick={() => setStep(1)}
-                    >
-                      Back
-                    </Button>
-                    <Button type="submit" disabled={!customerIdentity}>
-                      Continue to review
-                    </Button>
-                  </div>
-                </form>
+                  <Button onClick={() => setStep(1)}>
+                    Return to Choose for a fresh total
+                  </Button>
+                </div>
               )}
               {step === 3 && quote && (
                 <>
@@ -667,9 +610,35 @@ export function BookingWizard({
                     </p>
                     <p>{quote.mileage}</p>
                     <p>
-                      {getValues("name")} · {getValues("email")}
+                      {draft?.data.contact.name} · {customerIdentity?.email} ·{" "}
+                      {draft?.data.contact.phone}
                     </p>
                   </div>
+                  {draft && (
+                    <>
+                      <h3>Renter information</h3>
+                      <IntakeSummary value={draft.data.intake} />
+                      <p>
+                        {draft.data.intake.confirmed
+                          ? "You confirmed these fields; owner review is pending."
+                          : "Confirm your renter information before submitting."}
+                      </p>
+                      <h3>Documents</h3>
+                      {(
+                        quote.policy?.requiredDocuments || [
+                          "license",
+                          "insurance",
+                        ]
+                      ).map((kind) => (
+                        <p key={kind}>
+                          {kind}:{" "}
+                          {draft.documents.find((d) => d.kind === kind)
+                            ? "Uploaded — awaiting owner review"
+                            : "Required — not uploaded"}
+                        </p>
+                      ))}
+                    </>
+                  )}
                   <PriceSummary quote={quote} />
                   <div className="notice">
                     <Clock3 />
@@ -687,8 +656,8 @@ export function BookingWizard({
                       onChange={(e) => setAccepted(e.target.checked)}
                     />
                     <span>
-                      I understand this is a booking request, subject to
-                      approval. I have read the{" "}
+                      I accept the displayed trip total and understand this is a
+                      booking request, subject to approval. I have read the{" "}
                       <Link href="/terms" target="_blank">
                         rental requirements
                       </Link>{" "}
@@ -710,7 +679,9 @@ export function BookingWizard({
                     </Button>
                     <Button
                       type="button"
-                      disabled={!accepted || !customerIdentity}
+                      disabled={
+                        !accepted || !customerIdentity || !draft || busy
+                      }
                       loading={busy}
                       onClick={submit}
                     >

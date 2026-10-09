@@ -47,3 +47,7 @@ Hosted prerequisites include migration/RLS/Data API denial verification, first-t
 ## Independent-review corrections
 
 See `docs/renter-portal-review-fixes.md` for hosted fixture exclusion, durable outbox leases/immutable retries, agreement generation eligibility, and the distinction between application and provider mail restrictions. Migration 004 must be applied after 003 before this worker version runs. Neither was applied to hosted Supabase in this correction pass. Executed agreements are not stored by this application; fresh field generation is not a historical signed-document retrieval operation.
+
+## Driver documents before submission (005)
+
+See [driver-drafts.md](driver-drafts.md) for the current pre-request journey, migration 005, unchanged Auth configuration, explicit returning-document reuse and retention/backup responsibilities. New final requests require an owned, complete draft; existing submitted requests and their documents remain compatible. This update has not run hosted migrations or changed the working hosted magic-link integration.

@@ -10,8 +10,7 @@ export default function PrivacyPage() {
           When direct requests are open, we collect your name, email, phone and
           trip selection to review and coordinate the request. Your verified
           email account can access its own requests. The owner reviews them
-          through a protected console. My trips collects confirmed renter fields
-          and private license/insurance images for review. We do not collect
+          through a protected console. Driver & documents collects confirmed renter fields and private license/insurance images in an authenticated draft before submission. My trips lets you resume drafts and provide corrections. We do not collect
           card details, Social Security numbers or driving records here.
         </p>
       </div>
@@ -39,10 +38,10 @@ export default function PrivacyPage() {
         <p>
           Uploaded images are stored in the private application database, not a
           public bucket. Downloads require an authenticated owner or the
-          customer who owns the request, and are audited. Images expire 30 days
+          customer who owns the draft or request, and are audited. Abandoned drafts and their images expire 30 days after draft creation. Submitted images and original submission versions expire 30 days
           after the requested return; expired downloads are denied and a
           retention job removes the stored images. You may delete them earlier
-          in My trips. Deletion makes required review incomplete. Backup copies
+          before submission, or delete the current request copy in My trips. Original submitted versions remain until the stated retention deadline for review history. Deletion makes required review incomplete. Backup copies
           remain subject to the backup retention schedule, which must be
           approved before live use.
         </p>
@@ -55,11 +54,7 @@ export default function PrivacyPage() {
       <div className="panel">
         <h2>Cookies and contact</h2>
         <p>
-          Customer and owner sign-ins use separate restricted cookies. An unsent
-          name and phone draft may remain in this browser tab for up to 30
-          minutes; it is scoped to the signed-in account and cleared on
-          submission or logout. Documents and tokens are never stored in that
-          draft. Supabase Auth sends customer sign-in links; transactional
+          Customer and owner sign-ins use separate restricted cookies. Saved renter details and document drafts are held privately on the server for your account. Document bytes and renter fields are not saved in browser storage. Supabase Auth sends customer sign-in links; transactional
           request emails use a separate delivery queue. This implementation does
           not add advertising or session-recording tools. For information
           access, correction or deletion requests, contact

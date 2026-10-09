@@ -34,7 +34,9 @@ export async function POST(r: Request) {
     const a = await body(r, 2850000),
       u = await requireCustomer();
     await limit("upload:" + u.id, 20, 3600000);
-    return NextResponse.json(await uploadDocument(u, a.id, a.kind, a.content));
+    return NextResponse.json(
+      await uploadDocument(u, a.id, a.kind, a.content, a.validUntil),
+    );
   } catch (e) {
     return responseError(e);
   }

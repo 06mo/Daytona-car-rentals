@@ -1,36 +1,58 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { IntakeFields, type IntakeValues } from "./IntakeFields";
+import { DocumentUpload } from "./DocumentUpload";
 import { SignIn } from "./SignIn";
 import { vehicles } from "@/lib/data/vehicles";
 import { PriceSummary } from "@/components/booking/BookingWizard";
 import type { trips } from "@/lib/customer/portal";
 type Trip = Awaited<ReturnType<typeof trips>>[number];
 export function TripsPortal() {
+  const [drafts, setDrafts] = useState<any[]>([]);
   const [items, setItems] = useState<Trip[]>([]),
     [signed, setSigned] = useState(false),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [loading, setLoading] = useState(true);
+  const loadVersion = useRef(0);
   async function load() {
+    const version = ++loadVersion.current;
+    setLoading(true);
+    setItems([]);
+    setDrafts([]);
+    setError("");
     try {
       const r = await fetch("/api/customer/trips", { cache: "no-store" });
       const d = await r.json();
+      if (version !== loadVersion.current) return;
       if (r.status === 401) {
+        setItems([]);
+        setDrafts([]);
         setSigned(false);
         return;
       }
       if (!r.ok) throw Error(d.error);
       setSigned(true);
       setItems(d.trips);
+      setDrafts(d.drafts);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Unable to load trips.");
+      if (version === loadVersion.current)
+        setError(e instanceof Error ? e.message : "Unable to load trips.");
     } finally {
-      setLoading(false);
+      if (version === loadVersion.current) setLoading(false);
     }
   }
   useEffect(() => {
-    load();
+    void load();
+    const refresh = () => {
+      void load();
+    };
+    window.addEventListener("focus", refresh);
+    return () => {
+      loadVersion.current++;
+      window.removeEventListener("focus", refresh);
+    };
   }, []);
   async function action(
     payload: unknown,
@@ -79,6 +101,7 @@ export function TripsPortal() {
                   sessionStorage.removeItem("dcr-contact-draft");
                 } catch {}
                 setItems([]);
+                setDrafts([]);
                 setSigned(false);
               }
             }}
@@ -88,17 +111,46 @@ export function TripsPortal() {
           <button className="text-link" onClick={load}>
             Refresh trips
           </button>
+          {drafts.map((d) => (
+            <article className="panel" key={d.id}>
+              <h2>
+                Saved draft ·{" "}
+                {vehicles.find((v) => v.id === d.data.trip.vehicleId)?.model}
+              </h2>
+              <p>
+                No request submitted and no car held. Expires{" "}
+                {new Date(Number(d.expires_at)).toLocaleDateString()}.
+              </p>
+              <Link
+                className="journey-primary"
+                href={
+                  "/booking?" +
+                  new URLSearchParams({
+                    draft: d.id,
+                    step: "2",
+                    vehicle: d.data.trip.vehicleId,
+                    start: d.data.trip.start,
+                    end: d.data.trip.end,
+                    period: d.data.trip.period,
+                    location: d.data.trip.location,
+                  })
+                }
+              >
+                Resume driver & documents
+              </Link>
+            </article>
+          ))}
           {!items.length && (
             <p>
               No requests are associated with your account.{" "}
               <Link href="/fleet">Browse cars</Link>.
             </p>
           )}
-          {items.map((t,index) => (
+          {items.map((t, index) => (
             <TripCard
               key={t.id + ":" + t.revision}
               trip={t}
-              initialOpen={index===0}
+              initialOpen={index === 0}
               busy={busy}
               action={action}
             />
@@ -149,6 +201,10 @@ function TripCard({
   busy: boolean;
   action: (p: unknown, endpoint?: string, method?: string) => Promise<unknown>;
 }) {
+  const [intake, setIntake] = useState<IntakeValues>({
+    ...t.intake,
+    confirmed: false,
+  });
   const car = vehicles.find((v) => v.id === t.quote.vehicleId);
   const editable = !["Confirmed", "Declined", "Cancelled", "Expired"].includes(
     t.status.label,
@@ -224,45 +280,15 @@ function TripCard({
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              const f = new FormData(e.currentTarget);
+
               action({
                 action: "intake",
                 id: t.id,
-                intake: {
-                  legalName: f.get("legalName"),
-                  birthDate: f.get("birthDate"),
-                  licenseRegion: f.get("licenseRegion"),
-                  licenseExpiry: f.get("licenseExpiry"),
-                  address: f.get("address"),
-                  confirmed: f.get("confirmed") === "on",
-                },
+                intake,
               });
             }}
           >
-            <div className="form-grid">
-              {[
-                ["legalName", "Legal name", "text"],
-                ["birthDate", "Date of birth", "date"],
-                ["licenseRegion", "License issuing state / country", "text"],
-                ["licenseExpiry", "License expiration", "date"],
-                ["address", "Residential address for agreement", "text"],
-              ].map(([name, label, type]) => (
-                <label key={name}>
-                  {label}
-                  <input
-                    name={name}
-                    type={type}
-                    defaultValue={t.intake?.[name] || ""}
-                    required
-                    maxLength={name === "address" ? 300 : 100}
-                  />
-                </label>
-              ))}
-            </div>
-            <label className="checkbox-row">
-              <input type="checkbox" name="confirmed" required />I confirm these
-              fields are accurate. They remain subject to owner review.
-            </label>
+            <IntakeFields value={intake} onChange={setIntake} />
             <button className="journey-primary" disabled={busy}>
               Save renter information
             </button>
@@ -275,8 +301,10 @@ function TripCard({
           JPEG or PNG, up to 2 MB and 16 megapixels. Images are stripped of
           metadata. Access is authenticated and audited. Documents expire 30
           days after the requested return; expired images cannot be downloaded
-          and are removed by the retention job. You may delete them sooner;
-          required review will become incomplete. No OCR is configured.
+          and are removed by the retention job. You may delete the current copy
+          sooner; required review will become incomplete. Original submitted
+          draft versions remain until their retention deadline, and retained
+          backups expire separately. No OCR is configured.
         </p>
         {t.documents.map((d) => (
           <div key={d.id} className="date-actions">
@@ -302,61 +330,27 @@ function TripCard({
           </div>
         ))}
         {editable && (
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault();
-              const f = new FormData(e.currentTarget),
-                file = f.get("file") as File;
-              if (file.size > 2097152) {
-                alert("Maximum file size is 2 MB.");
-                return;
-              }
-              const bytes = new Uint8Array(await file.arrayBuffer());
-              let raw = "";
-              for (const b of bytes) raw += String.fromCharCode(b);
-              await action(
-                { id: t.id, kind: f.get("kind"), content: btoa(raw) },
-                "/api/customer/documents",
-              );
-            }}
-          >
-            <label>
-              Document type
-              <select name="kind">
-                <option value="license">Driver license</option>
-                <option value="insurance">Insurance document</option>
-              </select>
-            </label>
-            <label>
-              Image
-              <input
-                type="file"
-                name="file"
-                accept="image/jpeg,image/png"
-                required
-              />
-            </label>
-            <label className="checkbox-row">
-              <input type="checkbox" required />
-              {t.demo
-                ? "This is a synthetic test image, not a real identity document."
-                : "I understand the private document retention policy above."}
-            </label>
-            <button className="journey-primary" disabled={busy}>
-              Upload privately
-            </button>
-          </form>
+          <DocumentUpload
+            endpoint="/api/customer/documents"
+            payload={{ id: t.id }}
+            demo={t.demo}
+            disabled={busy}
+            done={() => action({ action: "refresh" }, "/api/customer/trips")}
+          />
         )}
       </details>
-      {editable && (
-        <button
-          disabled={busy}
-          className="journey-primary"
-          onClick={() => action({ action: "submit", id: t.id })}
-        >
-          Send information for owner review
-        </button>
-      )}
+      {editable &&
+        ["documents_needed", "corrections"].includes(
+          t.stage || "documents_needed",
+        ) && (
+          <button
+            disabled={busy}
+            className="journey-primary"
+            onClick={() => action({ action: "submit", id: t.id })}
+          >
+            Send information for owner review
+          </button>
+        )}
     </article>
   );
 }

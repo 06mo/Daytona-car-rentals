@@ -1,6 +1,6 @@
 import sharp from "sharp";
 import { test, expect, request as apiRequest } from "@playwright/test";
-import { customerSession } from "./auth-helper";
+import { customerSession, preparedRequest } from "./auth-helper";
 test("magic link cross-device continuation, reused/expired link denial and logout", async ({
   page,
   browser,
@@ -30,6 +30,73 @@ test("magic link cross-device continuation, reused/expired link denial and logou
   await expect(cross.locator(".selected-car")).toContainText("EcoSport");
   await expect(cross.locator("#location")).toHaveValue("airport");
   await expect(cross.locator(".quote-ready")).toHaveCount(0);
+  // Chromium treats loopback as trustworthy for Secure cookies; use actual
+  // browser fetch, not Playwright's separate HTTP request cookie handling.
+  const identity = await cross.evaluate(
+    async () => (await (await fetch("/api/customer/auth")).json()).customer,
+  );
+  expect(identity?.id).toBeTruthy();
+  const draftId = crypto.randomUUID();
+  const savedDraft = await cross.evaluate(
+    async ({ owner, id }) => {
+      const r = await fetch("/api/customer/drafts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "save",
+          expectedOwner: owner,
+          id,
+          revision: 0,
+          data: {
+            trip: {
+              vehicleId: "ecosport-3580557",
+              start: "2038-01-01T10:00",
+              end: "2038-01-31T10:00",
+              location: "airport",
+              period: "monthly",
+            },
+            contact: {
+              name: "Synthetic auth-resume driver",
+              phone: "0000000000",
+            },
+            intake: { confirmed: false },
+          },
+        }),
+      });
+      return r.status;
+    },
+    { owner: identity.id, id: draftId },
+  );
+  expect(savedDraft).toBe(200);
+  await other.clearCookies();
+  expect(
+    (
+      await page.request.post("/api/customer/auth", {
+        headers: { Origin: "http://127.0.0.1:3000" },
+        data: {
+          email: "renter@example.invalid",
+          next: next + "&step=2&draft=" + draftId,
+        },
+      })
+    ).ok(),
+  ).toBeTruthy();
+  const resumeFixture = await apiRequest.newContext({
+    ignoreHTTPSErrors: true,
+  });
+  const resumeLink = (
+    await (
+      await resumeFixture.get("https://127.0.0.1:4447/fixture/link")
+    ).json()
+  ).link;
+  await resumeFixture.dispose();
+  await cross.goto(resumeLink);
+  await cross.getByRole("button", { name: "Continue securely" }).click();
+  await expect(cross.getByLabel("Full name", { exact: true })).toHaveValue(
+    "Synthetic auth-resume driver",
+  );
+  expect(new URL(cross.url()).searchParams.get("draft")).toBe(draftId);
+  expect(new URL(cross.url()).searchParams.get("step")).toBe("2");
+  expect(new URL(cross.url()).searchParams.get("period")).toBe("monthly");
   await page.goto(link);
   await page.getByRole("button", { name: "Continue securely" }).click();
   await expect(page.locator("main").getByRole("alert")).toContainText(
@@ -141,21 +208,14 @@ test("renter intake, private images and owner review queue work together", async
   const saved = await (
     await page.request.post("/api/pilot/requests", {
       headers: { Origin: "http://127.0.0.1:3000" },
-      data: {
-        quoteId: q.id,
-        idempotencyKey: crypto.randomUUID(),
-        name: "Synthetic renter",
-        email: "renter@example.invalid",
-        phone: "0000000000",
-        acknowledged: true,
-        website: "",
-      },
+      data: await preparedRequest(page, q),
     })
   ).json();
   expect(saved.id).toBeTruthy();
   await page.reload();
   const card = page.locator(".trip-card").filter({ hasText: saved.id });
-  await expect(card).toContainText("Documents needed");
+  await expect(card).toContainText("Under review");
+  await card.getByText("Renter information", { exact: true }).click();
   await card.getByLabel("Legal name").fill("Synthetic Driver");
   await card.getByLabel("Date of birth").fill("1990-01-01");
   await card.getByLabel("License issuing state / country").fill("FL");
@@ -165,10 +225,14 @@ test("renter intake, private images and owner review queue work together", async
     .fill("Synthetic address for test only");
   await card.getByLabel("I confirm these fields").check();
   await card.getByRole("button", { name: "Save renter information" }).click();
-  await card.getByText(/Private documents ·/).click();
+  await expect(
+    card.getByRole("button", { name: "Send information for owner review" }),
+  ).toBeVisible();
   for (const kind of ["license", "insurance"]) {
+    await card.getByText(/Private documents ·/).click();
     await card.getByLabel("Document type").selectOption(kind);
-    await card.locator("input[type=file]").setInputFiles({
+    await card.getByLabel("Document valid through").fill("2045-01-01");
+    await card.locator("input[type=file][name=file]").setInputFiles({
       name: "synthetic.png",
       mimeType: "image/png",
       buffer: await sharp({
@@ -179,10 +243,8 @@ test("renter intake, private images and owner review queue work together", async
     });
     await card.getByLabel("This is a synthetic test image").check();
     await card.getByRole("button", { name: "Upload privately" }).click();
-    await expect(card).toContainText(
-      "Private documents · " + (kind === "license" ? 1 : 2) + " submitted",
-    );
-    await card.getByText(/Private documents ·/).click();
+    await expect(card.getByLabel("Document type")).not.toBeVisible();
+    await expect(card).toContainText("Private documents · 2 submitted");
   }
   await card
     .getByRole("button", { name: "Send information for owner review" })
@@ -206,7 +268,7 @@ test("renter intake, private images and owner review queue work together", async
   await unauthorized.close();
   for (const width of [1440, 390, 320]) {
     await page.setViewportSize({ width, height: width === 1440 ? 900 : 844 });
-    await page.evaluate(()=>window.scrollTo(0,0));
+    await page.evaluate(() => window.scrollTo(0, 0));
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
@@ -251,17 +313,17 @@ test("unsent contact draft survives same-tab reauthentication and never crosses 
   );
   await page.getByRole("button", { name: "See my trip total" }).click();
   await page
-    .getByRole("button", { name: "Continue to contact details" })
+    .getByRole("button", { name: "Continue to driver & documents" })
     .click();
   await page.getByLabel("Full name").fill("Synthetic unsent draft");
   await page.getByLabel("Phone", { exact: true }).fill("0000000000");
+  await expect(
+    page.getByRole("status").filter({ hasText: "Draft saved privately" }),
+  ).toBeVisible();
   await page.context().clearCookies();
   await customerSession(page.context());
   await page.reload();
-  await page.getByRole("button", { name: "See my trip total" }).click();
-  await page
-    .getByRole("button", { name: "Continue to contact details" })
-    .click();
+
   await expect(page.getByLabel("Full name")).toHaveValue(
     "Synthetic unsent draft",
   );
@@ -271,9 +333,7 @@ test("unsent contact draft survives same-tab reauthentication and never crosses 
   await page.context().clearCookies();
   await customerSession(page.context(), true);
   await page.reload();
-  await page.getByRole("button", { name: "See my trip total" }).click();
-  await page
-    .getByRole("button", { name: "Continue to contact details" })
-    .click();
-  await expect(page.getByLabel("Full name")).toHaveValue("");
+
+  await expect(page.getByText("Draft not found or expired.")).toBeVisible();
+  await expect(page.getByLabel("Full name")).toHaveCount(0);
 });
