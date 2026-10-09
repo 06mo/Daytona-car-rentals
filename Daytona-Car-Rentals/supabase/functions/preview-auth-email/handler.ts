@@ -1,5 +1,6 @@
 import { Webhook } from "standardwebhooks";
 import { z } from "zod";
+import { signingSecret } from "./signing-secret.ts";
 
 const recipient = "msooijir@gmail.com";
 const sender = "Daytona Car Rentals <notifications@notify.daytonacarrentals.com>";
@@ -49,8 +50,8 @@ export function previewAuthEmail(env: Environment, deliver: typeof fetch = fetch
           origin.username || origin.password || origin.port || origin.origin !== configuredOrigin) throw Error();
       key = env("DCR_AUTH_RESEND_KEY") || "";
       const secret = env("DCR_AUTH_HOOK_SIGNING_SECRET") || "";
-      if (!/^re_[A-Za-z0-9_\-]{10,}$/.test(key) || !/^v1,whsec_[A-Za-z0-9+/]{43}=$/.test(secret)) throw Error();
-      verifier = new Webhook(secret.slice(3));
+      if (!/^re_[A-Za-z0-9_\-]{10,}$/.test(key)) throw Error();
+      verifier = new Webhook(signingSecret(secret));
     } catch { return reply(503, "Preview email hook is not configured."); }
     if (request.headers.get("content-type")?.split(";")[0] !== "application/json")
       return reply(415, "JSON required.");

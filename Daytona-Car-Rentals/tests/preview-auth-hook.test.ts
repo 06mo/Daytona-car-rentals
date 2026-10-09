@@ -62,3 +62,28 @@ test('provider timeout fails closed within the hook budget',async()=>{
  }));
  const start=Date.now();assert.equal((await handler(request())).status,502);assert(Date.now()-start<3500);
 });
+
+test('documented 24–64 byte Supabase secrets preserve bytes and verify real HMACs',async()=>{
+ for(let size=24;size<=64;size++){
+  const bytes=Buffer.alloc(size,251),key='whsec_'+bytes.toString('base64');
+  const {handler,calls}=setup({DCR_AUTH_HOOK_SIGNING_SECRET:'v1,'+key});
+  const raw=JSON.stringify(payload),id=randomUUID(),at=new Date();
+  const signature=new Webhook(key).sign(id,at,raw);
+  const req=(body=raw,sig=signature,time=at)=>new Request('https://synthetic.invalid/hook',{method:'POST',headers:{'content-type':'application/json','webhook-id':id,'webhook-timestamp':String(Math.floor(+time/1000)),'webhook-signature':sig},body});
+  assert.equal((await handler(req())).status,200);
+  assert.equal((await handler(req(raw+' '))).status,401);
+  assert.equal((await handler(req(raw,new Webhook('whsec_'+Buffer.alloc(size,252).toString('base64')).sign(id,at,raw)))).status,401);
+  const stale=new Date(Date.now()-600000);
+  assert.equal((await handler(req(raw,new Webhook(key).sign(id,stale,raw),stale))).status,401);
+  assert.equal(calls.length,1);
+ }
+});
+test('malformed secret encodings and unsupported versions fail before delivery',async()=>{
+ const canonical=Buffer.alloc(32).toString('base64');
+ const invalid=['','whsec_'+canonical,canonical,'v2,whsec_'+canonical,'v1a,whsec_'+canonical,
+  'v1,whsec_', 'v1,whsec_'+Buffer.alloc(23).toString('base64'), 'v1,whsec_'+Buffer.alloc(65).toString('base64'),
+  'v1,whsec_'+canonical.slice(0,-1),'v1,whsec_'+canonical+'=', 'v1,whsec_'+canonical+'\n',
+  ' v1,whsec_'+canonical, 'v1,whsec_'+canonical.slice(0,-2)+'B=', 'v1,whsec_'+'-'.repeat(32),
+  'v1,whsec_'+'_'.repeat(32),'v1,whsec_'+canonical+',v1,whsec_'+canonical];
+ for(const value of invalid){const {handler,calls}=setup({DCR_AUTH_HOOK_SIGNING_SECRET:value});assert.equal((await handler(request())).status,503);assert.equal(calls.length,0);}
+});

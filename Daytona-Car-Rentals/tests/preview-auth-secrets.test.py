@@ -1,3 +1,4 @@
+import base64
 import importlib.util
 from pathlib import Path
 import tempfile
@@ -17,6 +18,15 @@ class PrivateEntryTests(unittest.TestCase):
             self.assertEqual(stat.S_IMODE(directory.stat().st_mode), 0o700)
             self.assertEqual(stat.S_IMODE(one.stat().st_mode), 0o600)
             self.assertEqual(one.read_text(), 'SYNTHETIC="not-a-credential"\n')
+    def test_documented_signing_secret_formats(self):
+        for size in range(24, 65):
+            value = 'v1,whsec_' + base64.b64encode(bytes([251]) * size).decode()
+            self.assertTrue(helper.valid_hook_secret(value))
+        for value in ['v2,whsec_' + 'A' * 32, 'v1,whsec_AA==', 'v1,whsec_' + 'A' * 88,
+                      'v1,whsec_' + base64.b64encode(bytes(32)).decode().rstrip('='),
+                      'v1,whsec_' + 'A' * 42 + 'B=', 'v1,whsec_' + '-' * 32]:
+            self.assertFalse(helper.valid_hook_secret(value))
+
     def test_symlink_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             link = Path(tmp) / 'link'

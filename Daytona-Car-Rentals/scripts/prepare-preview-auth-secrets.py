@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Local terminal only: never uploads credentials or contacts a service."""
+import base64
 import getpass
 import os
 from pathlib import Path
@@ -29,6 +30,16 @@ def save_private(values, directory=DIRECTORY):
             output.write(key + '="' + value + '"\n')
     return path
 
+def valid_hook_secret(value):
+    if not value.startswith('v1,whsec_'):
+        return False
+    encoded = value[len('v1,whsec_'):]
+    try:
+        decoded = base64.b64decode(encoded, validate=True)
+        return 24 <= len(decoded) <= 64 and base64.b64encode(decoded).decode() == encoded
+    except (ValueError, UnicodeError):
+        return False
+
 def main():
     if not sys.stdin.isatty():
         raise ValueError('Use your private interactive terminal; do not pipe secrets.')
@@ -42,7 +53,7 @@ def main():
     if not re.fullmatch(r're_[A-Za-z0-9_-]{10,}', key):
         raise ValueError('Invalid Resend key format; value was not saved.')
     hook = getpass.getpass('Supabase Send Email Hook signing secret (hidden; blank if not generated yet): ')
-    if hook and not re.fullmatch(r'v1,whsec_[A-Za-z0-9+/]{43}=', hook):
+    if hook and not valid_hook_secret(hook):
         raise ValueError('Expected the full Supabase v1,whsec_ signing secret; value was not saved.')
     path = save_private({
         'DCR_AUTH_RESEND_KEY': key,
