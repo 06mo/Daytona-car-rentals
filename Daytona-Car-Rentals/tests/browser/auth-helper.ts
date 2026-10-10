@@ -55,7 +55,7 @@ export async function completeDriver(page: import("@playwright/test").Page) {
     await doc.getByLabel("Expiration date").fill("2045-01-01");
     await doc.getByLabel("This is a synthetic test image").check();
     await doc
-      .getByRole("button", { name: "Upload image", exact: true })
+      .getByRole("button", { name: "Save image", exact: true })
       .click();
     await doc
       .getByText("Uploaded — awaiting review", { exact: true })

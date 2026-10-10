@@ -318,7 +318,7 @@ test("unsent contact draft survives same-tab reauthentication and never crosses 
   );
   await page.getByRole("button", { name: "See my trip total" }).click();
   await page
-    .getByRole("button", { name: "Continue to driver & documents" })
+    .getByRole("button", { name: "Driver & documents" })
     .click();
   await page.getByLabel("Full name").fill("Synthetic unsent draft");
   await page.getByLabel("Phone", { exact: true }).fill("0000000000");

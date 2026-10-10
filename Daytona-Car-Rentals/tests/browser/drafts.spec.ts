@@ -65,9 +65,7 @@ for (const width of [1440, 390, 320])
       `/booking?vehicle=corolla-3275798&period=weekly&start=2041-05-${day}T10:00&end=2041-05-${String(+day + 4).padStart(2, "0")}T10:00`,
     );
     await page.getByRole("button", { name: "See my trip total" }).click();
-    await page
-      .getByRole("button", { name: "Continue to driver & documents" })
-      .click();
+    await page.getByRole("button", { name: "Driver & documents" }).click();
     await expect(
       page.getByRole("heading", { name: "Let’s get you ready." }),
     ).toBeFocused();
@@ -150,7 +148,9 @@ for (const width of [1440, 390, 320])
       .getByRole("button", { name: "Remove", exact: true })
       .click();
     await expect(failedCard.getByRole("status")).toHaveText("Missing");
-    await expect(failedCard.getByRole("button", {name:"Upload image",exact:true})).toBeFocused();
+    await expect(
+      failedCard.getByRole("button", { name: "Upload image", exact: true }),
+    ).toBeFocused();
     await upload(page, "license");
     await expect(
       documentCard(page, "license").getByText("Uploaded — awaiting review", {
@@ -158,9 +158,7 @@ for (const width of [1440, 390, 320])
       }),
     ).toBeVisible();
     await page.getByRole("button", { name: "Back", exact: true }).click();
-    await page
-      .getByRole("button", { name: "Continue to driver & documents" })
-      .click();
+    await page.getByRole("button", { name: "Driver & documents" }).click();
     await expect(page.getByLabel("Legal name")).toHaveValue("Synthetic Driver");
     await expect(
       documentCard(page, "insurance").getByText("Uploaded — awaiting review", {
@@ -197,7 +195,7 @@ for (const width of [1440, 390, 320])
         r.url().endsWith("/api/pilot/requests") &&
         r.request().method() === "POST",
     );
-    await page.getByRole("button", { name: "Try booking request" }).click();
+    await page.getByRole("button", { name: "Submit request" }).click();
     const res = await response;
     expect(res.status(), await res.text()).toBe(201);
     const body = res.request().postDataJSON();
@@ -248,9 +246,7 @@ test("private draft resumes after auth and cannot cross accounts; fresh quote pr
   ).toBeVisible();
   await page.getByRole("button", { name: "Back", exact: true }).click();
   await page.getByRole("button", { name: "See my trip total" }).click();
-  await page
-    .getByRole("button", { name: "Continue to driver & documents" })
-    .click();
+  await page.getByRole("button", { name: "Driver & documents" }).click();
   await upload(page, "insurance");
   await page.getByRole("button", { name: "Continue to review" }).click();
   await page
@@ -263,22 +259,20 @@ test("private draft resumes after auth and cannot cross accounts; fresh quote pr
       body: JSON.stringify({ error: "Quote expired. Obtain a fresh total." }),
     }),
   );
-  await page.getByRole("button", { name: "Try booking request" }).click();
+  await page.getByRole("button", { name: "Submit request" }).click();
   await expect(
-    page.getByRole("button", { name: "See my trip total" }),
+    page.getByRole("button", { name: "Refresh quote", exact: true }),
   ).toBeVisible();
   await page.unroute("**/api/pilot/requests");
-  await page.getByRole("button", { name: "See my trip total" }).click();
   await page
-    .getByRole("button", { name: "Continue to driver & documents" })
+    .getByRole("button", { name: "Refresh quote", exact: true })
     .click();
-  await expect(page.getByLabel("Legal name")).toHaveValue("Synthetic Driver");
   await expect(
-    documentCard(page, "license").getByText("Uploaded — awaiting review", {
-      exact: true,
-    }),
+    page.getByRole("checkbox", { name: /I accept the displayed trip total/ }),
+  ).toBeEnabled();
+  await expect(
+    page.getByText("license: Uploaded — awaiting owner review"),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Continue to review" }).click();
   await expect(
     page.getByRole("checkbox", { name: /I accept the displayed trip total/ }),
   ).not.toBeChecked();
@@ -344,7 +338,7 @@ test("returning renter explicitly reuses documents, saves later and resumes an o
     ).toBeVisible();
   }
   await page.getByLabel("I confirm these fields").check();
-  await page.getByRole("button", { name: "Save and finish later" }).click();
+  await page.getByRole("button", { name: "Save draft" }).click();
   await page.waitForURL("**/my-trip");
   await page.getByRole("link", { name: "Resume driver & documents" }).click();
   await expect(page.getByLabel("Legal name")).toHaveValue("Synthetic Driver");
@@ -457,40 +451,38 @@ test("document cards use one native picker, validate inline and follow quote req
     "/booking?vehicle=corolla-3275798&period=weekly&start=2044-06-01T10:00&end=2044-06-08T10:00",
   );
   await page.getByRole("button", { name: "See my trip total" }).click();
-  await page
-    .getByRole("button", { name: "Continue to driver & documents" })
-    .click();
+  await page.getByRole("button", { name: "Driver & documents" }).click();
   await fill(page);
   const card = documentCard(page, "license");
   await expect(card.getByText("Required", { exact: true })).toBeVisible();
   await expect(
     documentCard(page, "insurance").getByText("Optional", { exact: true }),
   ).toBeVisible();
-  await card
-    .getByLabel(/image file/)
-    .setInputFiles({
-      name: "invalid.txt",
-      mimeType: "text/plain",
-      buffer: Buffer.from("synthetic"),
-    });
+  await card.getByLabel(/image file/).setInputFiles({
+    name: "invalid.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("synthetic"),
+  });
   await expect(card.getByRole("alert")).toContainText("JPEG or PNG");
   const image = async (background: string) =>
     sharp({ create: { width: 30, height: 20, channels: 3, background } })
       .png()
       .toBuffer();
-  await card
-    .getByLabel(/image file/)
-    .setInputFiles({
-      name: "first.png",
-      mimeType: "image/png",
-      buffer: await image("#aaa"),
-    });
+  await card.getByLabel(/image file/).setInputFiles({
+    name: "first.png",
+    mimeType: "image/png",
+    buffer: await image("#aaa"),
+  });
   const replacement = await image("#bbb");
   const chooser = page.waitForEvent("filechooser");
   await card.getByRole("button", { name: "Replace image" }).click();
   await (
     await chooser
-  ).setFiles({ name: "replacement.png", mimeType: "image/png", buffer: replacement });
+  ).setFiles({
+    name: "replacement.png",
+    mimeType: "image/png",
+    buffer: replacement,
+  });
   await expect(card.getByRole("img")).toHaveCount(1);
   await expect(card.getByRole("status")).toHaveText("Missing");
   await card.getByRole("button", { name: "Save image", exact: true }).click();
@@ -531,17 +523,17 @@ test("document cards use one native picker, validate inline and follow quote req
       });
     return route.continue();
   });
-  await card.getByRole("button", { name: "Replace image", exact: true }).focus();
+  await card
+    .getByRole("button", { name: "Replace image", exact: true })
+    .focus();
   await expect(
     card.getByRole("button", { name: "Replace image", exact: true }),
   ).toBeFocused();
-  await card
-    .getByLabel(/image file/)
-    .setInputFiles({
-      name: "replace.png",
-      mimeType: "image/png",
-      buffer: await image("#ccc"),
-    });
+  await card.getByLabel(/image file/).setInputFiles({
+    name: "replace.png",
+    mimeType: "image/png",
+    buffer: await image("#ccc"),
+  });
   await card.getByLabel("This is a synthetic test image").check();
   await card.getByRole("button", { name: "Save image", exact: true }).click();
   await expect(card.getByRole("alert")).toContainText("Synthetic rejection");

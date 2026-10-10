@@ -50,3 +50,22 @@ and their grid ancestors with minimum widths and border-box sizing, rather than
 clipping overflow or reducing text size. Scoped card spacing must also override
 the existing booking form paragraph margins. Browser/physical-device evidence
 is recorded separately in the native-picker handoff.
+
+## Quote recovery — owner-requested refinement, 2026-10-10
+
+Local baseline evidence reproduced loss of a still-valid quote on same-trip
+history and reload; normal uploads alone retained it. A missing client quote
+is not evidence that the server quote expired. Recover in the customer's current
+step, keep trip/document context, explain errors, and require explicit acceptance
+of a server-validated total. Do not treat a refreshed price as submission.
+
+Rendered 200% root-text checks exposed three independent constraints: stepper
+labels needed reflow, sticky-header height changed, and the reused price-summary
+style made renter addresses `nowrap`. Measure the actual header for focus;
+let text and flex/grid children wrap rather than clipping or shrinking type.
+This is browser text-size stress evidence, not physical-device certification.
+
+A delayed-upload regression also exposed a redundant intake autosave advancing
+its document revision. Compare the saved and current intake before enabling
+uploads, avoid no-op saves, and preserve strict server revision checks. Tests
+must deliberately delay responses; the happy path alone hid this race.

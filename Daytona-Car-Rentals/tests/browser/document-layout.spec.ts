@@ -8,7 +8,7 @@ for (const width of [320, 390, 1440]) {
     await page.setViewportSize({ width, height: width === 1440 ? 900 : 844 });
     await page.goto('/booking?vehicle=corolla-3275798&period=weekly&start=2044-08-01T10:00&end=2044-08-08T10:00');
     await page.getByRole('button', { name: 'See my trip total' }).click();
-    await page.getByRole('button', { name: 'Continue to driver & documents' }).click();
+    await page.getByRole('button', { name: 'Driver & documents' }).click();
     const card = page.getByRole('form', { name: 'Driver’s license', exact: true });
     const picker = card.locator('input[type=file]');
     await expect(picker).toHaveCount(1);

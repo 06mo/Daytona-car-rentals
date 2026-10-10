@@ -76,3 +76,14 @@ numbers drift. Avoid normalizing legacy/local values during unrelated UI tasks.
 No new visual proposal is approved by this guide. Put observations in
 [lessons.md](lessons.md), marking measured defects, hypotheses and owner decisions
 separately. During review-only work, recommend changes without implementing them.
+
+## Request recovery — approved task, observed implementation
+
+Review keeps trip, renter and document context when a quote is missing. Use the
+existing Refresh quote action in place, show changes, and require acceptance
+before Submit request. Save draft and Continue to review do not submit. The
+compact stepper labels are Choose, Driver & docs and Review. Focus positioning
+uses the measured sticky-header height, including enlarged text; readable text
+wraps rather than being clipped. Implementation and verification entry points:
+[quote-recovery.md](../quote-recovery.md). These are request-wizard rules, not a
+new global design system.

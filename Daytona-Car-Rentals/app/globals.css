@@ -1557,3 +1557,63 @@ summary:focus-visible, [tabindex="-1"]:focus-visible { outline:3px solid var(--t
 .document-card input[type="date"]::-webkit-calendar-picker-indicator {
   margin: 0; padding: 0; width: 20px; height: 20px;
 }
+
+/* Request wizard: focus clears the measured sticky header; all steps keep their context. */
+.booking-page :is(h1, h2, h3, button, input, select, summary, a),
+.booking-confirmation h1 { scroll-margin-top: var(--wizard-offset, 112px); }
+.booking-page { padding-top: 20px; }
+.booking-page .booking-header { margin: 18px 0 12px; }
+.booking-page .booking-intro { margin: 0 0 12px; }
+.booking-page .booking-progress { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); max-width: 540px; gap: 12px; margin-top: 16px; }
+.booking-page .booking-progress li { gap: 8px; min-width: 0; align-items: start; }
+.booking-page .booking-progress li > span:first-child { flex: 0 0 28px; width: 28px; height: 28px; }
+.booking-page .booking-progress .step-label { display: block; width: auto; height: auto; border: 0; border-radius: 0; background: none; color: inherit; }
+.booking-page .selected-car { margin-bottom: 16px; }
+.booking-page .form-grid { margin-block: 16px; gap: 14px; }
+.booking-page .form-actions { flex-wrap: wrap; gap: 12px; margin-top: 16px; }
+.booking-page button { height: auto; min-height: 48px; padding-block: 10px; max-width: 100%; white-space: normal; }
+.booking-page .request-review { display: grid; gap: 16px; min-width: 0; }
+.request-review :is(p,h2,h3,.price-summary) { margin: 0; }
+.request-review h2 { font-size: 1.3rem; }
+.request-review :is(.review-trip,.review-quote,.review-driver) { display: grid; gap: 10px; min-width: 0; }
+.request-review .review-quote { padding-block: 16px; border-block: 1px solid var(--line); }
+.request-review .review-driver { display: block; overflow-wrap: anywhere; }
+.request-review .review-driver > * { min-width: 0; margin-bottom: 10px; }
+.request-review .review-driver summary { font-weight: 600; min-height: 44px; cursor: pointer; }
+.request-review .price-summary > div { flex-wrap: wrap; gap: 6px 16px; padding-block: 8px; }
+.request-review .price-summary dd { margin-left: auto; min-width: 0; white-space: normal; }
+.request-review :is(p,dd,dt) { overflow-wrap: anywhere; }
+.request-review .quote-changes { padding-left: 20px; margin: 0; }
+.request-review .notice { margin: 0; }
+.booking-page [aria-label="Private driver draft"] > p { margin-block: 12px; }
+.booking-page [aria-label="Private driver draft"] h3 { margin-top: 20px; }
+.booking-page :is(input,select) { box-sizing: border-box; min-width: 0; max-width: 100%; }
+@media (max-width: 640px) {
+  .booking-page .booking-progress li { flex-direction: column; gap: 4px; font-size: .9rem; }
+  .booking-page .booking-main { padding: 16px; }
+  .booking-page .booking-grid { gap: 20px; }
+  .booking-page .booking-aside { position: static; }
+  .booking-page .aside-image { display: none; }
+  .booking-page .booking-header h1 { font-size: 1.8rem; }
+  .booking-page .booking-progress .step-label { line-height: 1.35; }
+}
+
+@media (max-width: 640px) {
+  .booking-nav .nav-inner { height: auto; min-height: 76px; flex-wrap: wrap; padding-block: 10px; gap: 10px; }
+  .booking-nav .brand-lockup { flex-wrap: wrap; }
+  .booking-nav .mobile-menu { flex: 0 0 auto; margin-left: auto; }
+}
+html:has(.booking-page), html:has(.booking-confirmation) { scroll-behavior: auto; }
+.booking-nav .nav-inner { height: auto; min-height: 92px; flex-wrap: wrap; padding-block: 10px; }
+.booking-nav .nav-inner > a:first-child { flex: 0 0 auto; }
+.booking-nav .desktop-nav { flex-wrap: wrap; min-width: 0; gap: 16px; }
+.booking-page .booking-progress { grid-template-columns: repeat(auto-fit,minmax(min(100%,4.75rem),1fr)); }
+.booking-page .booking-progress li > span:first-child { flex: 0 0 1.8em; width: 1.8em; height: 1.8em; }
+.booking-page .booking-progress .step-label { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width:640px) {
+  .booking-nav .nav-inner { min-height:76px; }
+}
+
+/* Long support addresses must reflow with enlarged text in the request journey. */
+body:has(.booking-page) .footer-grid > *,
+body:has(.booking-confirmation) .footer-grid > * { min-width: 0; overflow-wrap: anywhere; }

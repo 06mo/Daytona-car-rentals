@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/Button";
 import { vehicles, TURO_HOST_URL } from "@/lib/data/vehicles";
 import { money, type Quote, type TripInput } from "@/lib/pilot/model";
 
+import { sameTrip, tripKey, quoteChanges } from "@/lib/pilot/quote-state";
+
 import { directVehicles } from "@/lib/data/rentalChannels";
 import {
   monthlyTerms,
@@ -83,6 +85,15 @@ export function PriceSummary({ quote }: { quote: Quote }) {
     </dl>
   );
 }
+function revealWizardFocus(target: HTMLElement) {
+  if (document.activeElement !== target) return;
+  const offset =
+    (document.querySelector(".site-nav")?.getBoundingClientRect().height || 0) +
+    16;
+  const box = target.getBoundingClientRect();
+  if (box.top < offset || box.bottom > window.innerHeight)
+    window.scrollBy({ top: box.top - offset, behavior: "instant" });
+}
 export function BookingWizard({
   initial,
   initialPeriod,
@@ -114,9 +125,47 @@ export function BookingWizard({
     period: initialPeriod,
   });
   useEffect(() => {
-    if (step === 2) setEditorStarted(true);
+    if (step >= 2) setEditorStarted(true);
   }, [step]);
   const quoteVersion = useRef(0);
+  const tripRef = useRef(trip),
+    quoteRef = useRef(quote);
+  const activeDraftId = useRef("");
+  if (draft) activeDraftId.current = draft.id;
+  const quoteHeading = useRef<HTMLHeadingElement>(null);
+  const focusQuoteResult = useRef(false);
+  tripRef.current = trip;
+  quoteRef.current = quote;
+  const lastQuote = useRef<Quote | null>(null);
+  const [changes, setChanges] = useState<string[]>([]);
+  const [quoteNotice, setQuoteNotice] = useState("");
+  const submitting = useRef(false);
+  const wizard = useRef<HTMLElement>(null);
+  const quoteCache = "dcr-quote-reference";
+  function moveStep(next: number) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("step", String(next));
+    window.history.replaceState(null, "", url);
+    setStep(next);
+  }
+  function invalidateQuote(message: string) {
+    quoteVersion.current++;
+    focusQuoteResult.current = false;
+    quoteRef.current = null;
+    setQuote(null);
+    setAccepted(false);
+    setBusy(submitting.current);
+    setQuoteNotice(message);
+  }
+  function restoreReference(next: TripInput) {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(quoteCache) || "null");
+      if (saved?.trip === tripKey(next) && typeof saved.id === "string")
+        void getQuote(next, saved.id);
+    } catch {
+      /* Storage is optional; in-place refresh remains available. */
+    }
+  }
   const previousStep = useRef(1);
   const key = useRef(""),
     heading = useRef<HTMLHeadingElement>(null);
@@ -124,29 +173,39 @@ export function BookingWizard({
     // Native history edits can leave Next's cached server props behind the URL.
     const restore = () => {
       const saved = readJourney(new URLSearchParams(window.location.search));
-      setDraftKey(
-        new URLSearchParams(window.location.search).get("draft") || "",
-      );
-      setDraft(null);
+      const id = new URLSearchParams(window.location.search).get("draft") || "";
+      if (id !== activeDraftId.current) {
+        activeDraftId.current = id;
+        setDraftKey(id);
+        setDraft(null);
+      }
       const vehicleId = directVehicles.some((v) => v.id === saved.vehicle)
         ? saved.vehicle!
         : directVehicles[0].id;
-      setTrip({
+      const next: TripInput = {
         vehicleId,
         period: saved.period || "",
         start: saved.start || "",
         end: saved.end || "",
         location: saved.location === "airport" ? "airport" : "local",
-      });
+      };
+      tripRef.current = next;
+      setTrip(next);
       setPeriod(saved.period || "");
-      quoteVersion.current++;
-      setQuote(null);
       setAccepted(false);
-      setBusy(false);
       setError("");
-      setStep(
-        new URLSearchParams(window.location.search).get("step") === "2" ? 2 : 1,
-      );
+      if (
+        !quoteRef.current ||
+        !sameTrip(quoteRef.current, next) ||
+        quoteRef.current.expiresAt <= Date.now()
+      ) {
+        invalidateQuote(
+          "Refresh the quote to review the current total. Your saved information stays here.",
+        );
+        restoreReference(next);
+      }
+      const requested = new URLSearchParams(window.location.search).get("step");
+      setStep(requested === "3" ? 3 : requested === "2" ? 2 : 1);
     };
     restore();
     window.addEventListener("popstate", restore);
@@ -177,10 +236,63 @@ export function BookingWizard({
   useEffect(() => {
     if (step !== previousStep.current || result) {
       heading.current?.focus({ preventScroll: true });
-      heading.current?.scrollIntoView({ block: "start" });
+      if (heading.current)
+        window.scrollTo({
+          top:
+            heading.current.getBoundingClientRect().top +
+            window.scrollY -
+            (document.querySelector(".site-nav")?.getBoundingClientRect()
+              .height || 0) -
+            16,
+          behavior: "instant",
+        });
     }
     previousStep.current = step;
   }, [step, result]);
+  useEffect(() => {
+    const nav = document.querySelector(".site-nav");
+    const measure = () => {
+      wizard.current?.style.setProperty(
+        "--wizard-offset",
+        `${(nav?.getBoundingClientRect().height || 0) + 16}px`,
+      );
+      const focused = document.activeElement;
+      if (focused instanceof HTMLElement && wizard.current?.contains(focused))
+        requestAnimationFrame(() => revealWizardFocus(focused));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    if (nav) observer.observe(nav);
+    if (wizard.current) observer.observe(wizard.current);
+    return () => observer.disconnect();
+  }, [result]);
+  useEffect(() => {
+    if (step === 3 && !busy && focusQuoteResult.current) {
+      focusQuoteResult.current = false;
+      quoteHeading.current?.focus({ preventScroll: true });
+      if (quoteHeading.current) revealWizardFocus(quoteHeading.current);
+    }
+  }, [step, busy, quote, error]);
+  useEffect(() => {
+    if (!quote) return;
+    const expire = () => {
+      if (quoteRef.current?.id === quote.id && quote.expiresAt <= Date.now())
+        invalidateQuote(
+          "Your quote expired. Refresh it before accepting the total. Your information and documents are saved.",
+        );
+    };
+    const timer = window.setTimeout(
+      expire,
+      Math.max(0, quote.expiresAt - Date.now()),
+    );
+    window.addEventListener("focus", expire);
+    document.addEventListener("visibilitychange", expire);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("focus", expire);
+      document.removeEventListener("visibilitychange", expire);
+    };
+  }, [quote]);
   useEffect(() => {
     let active = true;
     const verify = async () => {
@@ -207,53 +319,111 @@ export function BookingWizard({
   }, [customerIdentity?.id]);
   const vehicle = vehicles.find((v) => v.id === trip.vehicleId)!;
   const update = (field: keyof TripInput, value: string) => {
-    quoteVersion.current++;
-    setBusy(false);
-    setTrip({ ...trip, [field]: value });
+    if (tripRef.current[field] === value) return;
+    invalidateQuote(
+      "Your trip changed. Refresh the quote to review the current total.",
+    );
+    const next = { ...tripRef.current, [field]: value };
+    tripRef.current = next;
+    setTrip(next);
     updateJourney({ [field === "vehicleId" ? "vehicle" : field]: value });
-    setQuote(null);
-    setAccepted(false);
     setError("");
   };
-  async function getQuote() {
+  async function getQuote(
+    input: TripInput = tripRef.current,
+    resumeQuoteId?: string,
+  ) {
+    if (submitting.current) return;
+    focusQuoteResult.current = step === 3 && !resumeQuoteId;
     const version = ++quoteVersion.current;
+    quoteRef.current = null;
     setQuote(null);
     setAccepted(false);
     setBusy(true);
     setError("");
+    setQuoteNotice(
+      resumeQuoteId ? "Checking your saved quote…" : "Refreshing your quote…",
+    );
     try {
       const response = await fetch("/api/pilot/quote", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(trip),
+        body: JSON.stringify(
+          resumeQuoteId ? { resumeQuoteId, trip: input } : input,
+        ),
       });
       const data = await response.json();
-      if (version !== quoteVersion.current) return;
-      if (!response.ok) throw new Error(data.error);
-      setQuote(data);
+      if (version !== quoteVersion.current || !sameTrip(input, tripRef.current))
+        return;
+      if (!response.ok)
+        throw new Error(
+          data.error || "Unable to refresh the quote. Please retry.",
+        );
+      const next: Quote = resumeQuoteId ? data.quote : data;
+      if (!next || !sameTrip(next, input))
+        throw new Error("The quote does not match this trip. Please retry.");
+      const differences = quoteChanges(lastQuote.current, next);
+      lastQuote.current = next;
+      if ((resumeQuoteId && !data.valid) || next.expiresAt <= Date.now())
+        throw new Error(
+          data.reason ||
+            "Your quote expired. Refresh it to check the current total.",
+        );
+      setChanges(differences);
+      quoteRef.current = next;
+      setQuote(next);
+      setQuoteNotice(
+        resumeQuoteId
+          ? "Saved quote checked. Review and accept the total before submitting."
+          : differences.length
+            ? "Your quote changed. Review the changes and accept the new total."
+            : "Quote ready. Review and accept the total before submitting.",
+      );
       key.current = crypto.randomUUID();
+      try {
+        sessionStorage.setItem(
+          quoteCache,
+          JSON.stringify({ id: next.id, trip: tripKey(input) }),
+        );
+      } catch {}
     } catch (e) {
-      if (version === quoteVersion.current)
-        setError(e instanceof Error ? e.message : "Unable to quote this trip.");
+      if (version === quoteVersion.current) {
+        setQuoteNotice(
+          "No current quote. Your information and documents are saved.",
+        );
+        setError(
+          e instanceof Error
+            ? e.message
+            : "Unable to refresh the quote. Please retry.",
+        );
+      }
     } finally {
       if (version === quoteVersion.current) setBusy(false);
     }
   }
   async function submit() {
-    if (!quote || !accepted || !customerIdentity || !draft) return;
     if (
-      quote.vehicleId !== trip.vehicleId ||
-      quote.start !== trip.start ||
-      quote.end !== trip.end ||
-      quote.location !== trip.location ||
-      (quote.period || "") !== period
-    ) {
-      setQuote(null);
-      setAccepted(false);
-      setStep(1);
-      setError("Your trip changed. Calculate a new quote before continuing.");
+      submitting.current ||
+      busy ||
+      !quote ||
+      !accepted ||
+      !customerIdentity ||
+      !draft
+    )
+      return;
+    if (quote.expiresAt <= Date.now()) {
+      invalidateQuote(
+        "Your quote expired. Refresh it and accept the current total.",
+      );
       return;
     }
+    if (!sameTrip(quote, trip) || !sameTrip(draft.data.trip, trip)) {
+      invalidateQuote(
+        "Your trip changed. Save the current details and refresh your quote.",
+      );
+      return;
+    }
+    submitting.current = true;
     setBusy(true);
     setError("");
     try {
@@ -273,12 +443,12 @@ export function BookingWizard({
       if (!response.ok) {
         if (response.status === 401) {
           setCustomerIdentity(null);
-          setStep(2);
+          moveStep(2);
         }
         if (response.status === 409) {
-          setQuote(null);
-          setAccepted(false);
-          setStep(1);
+          invalidateQuote(
+            "Review your trip and refresh the quote before trying again.",
+          );
         }
         throw new Error(data.error);
       }
@@ -291,20 +461,22 @@ export function BookingWizard({
         e instanceof Error ? e.message : "Unable to submit your request.",
       );
     } finally {
+      submitting.current = false;
       setBusy(false);
     }
   }
   if (result)
     return (
-      <section className="container page-section confirmation">
+      <section
+        ref={wizard}
+        className="container page-section confirmation booking-confirmation"
+      >
         <CheckCircle2 size={52} />
         <p className="eyebrow">
           {result.demo ? "PREVIEW COMPLETE" : "REQUEST RECEIVED"}
         </p>
         <h1 ref={heading} tabIndex={-1}>
-          {result.demo
-            ? "Preview request complete."
-            : "Your trip is awaiting review."}
+          Request submitted — awaiting approval
         </h1>
         <p>
           {result.demo
@@ -328,7 +500,14 @@ export function BookingWizard({
       </section>
     );
   return (
-    <section className="container booking-page">
+    <section
+      ref={wizard}
+      className="container booking-page"
+      onFocusCapture={(event) => {
+        const target = event.target as HTMLElement;
+        requestAnimationFrame(() => revealWizardFocus(target));
+      }}
+    >
       {state?.demo && (
         <div className="demo-banner">
           Booking preview · Sample rates and policies. Use only synthetic renter
@@ -346,14 +525,14 @@ export function BookingWizard({
               : "One last look."}
         </h1>
         <ol className="booking-progress" aria-label="Booking progress">
-          {["Choose", "Driver & documents", "Review"].map((label, i) => (
+          {["Choose", "Driver & docs", "Review"].map((label, i) => (
             <li
               key={label}
               aria-current={step === i + 1 ? "step" : undefined}
               className={step >= i + 1 ? "active" : ""}
             >
               <span>{step > i + 1 ? <CheckCircle2 size={18} /> : i + 1}</span>
-              {label}
+              <span className="step-label">{label}</span>
             </li>
           ))}
         </ol>
@@ -361,7 +540,7 @@ export function BookingWizard({
       <p className="small-note booking-intro">
         Your draft is unsent. Direct requests require approval.
       </p>
-      {error && (
+      {error && step !== 3 && (
         <div className="error-message" role="alert">
           {error}
         </div>
@@ -514,6 +693,7 @@ export function BookingWizard({
                       type="submit"
                       loading={busy}
                       disabled={
+                        busy ||
                         !state.rates.some(
                           (rate) =>
                             rate.vehicleId === trip.vehicleId &&
@@ -532,19 +712,16 @@ export function BookingWizard({
                         type="button"
                         onClick={() => {
                           setError("");
-                          const url = new URL(window.location.href);
-                          url.searchParams.set("step", "2");
-                          window.history.replaceState(null, "", url);
-                          setStep(2);
+                          moveStep(2);
                         }}
                       >
-                        Continue to driver & documents
+                        Driver & documents
                       </Button>
                     </div>
                   )}
                 </>
               )}
-              {step === 2 && !customerIdentity && (
+              {step >= 2 && !customerIdentity && (
                 <SignIn
                   next={
                     typeof window !== "undefined"
@@ -572,11 +749,11 @@ export function BookingWizard({
                   onAuthLost={() => {
                     setCustomerIdentity(null);
                     setDraft(null);
-                    setStep(2);
+                    moveStep(2);
                   }}
                   onReady={() => {
                     setAccepted(false);
-                    setStep(3);
+                    moveStep(3);
                   }}
                 />
               )}
@@ -584,83 +761,140 @@ export function BookingWizard({
                 <Button
                   variant="outline"
                   type="button"
-                  onClick={() => setStep(1)}
+                  onClick={() => moveStep(1)}
                 >
                   Back
                 </Button>
               )}
-              {step === 3 && !quote && (
-                <div>
-                  <p>
-                    Your documents are saved. Calculate a fresh quote before
-                    reviewing and accepting the total.
-                  </p>
-                  <Button onClick={() => setStep(1)}>
-                    Return to Choose for a fresh total
-                  </Button>
-                </div>
-              )}
-              {step === 3 && quote && (
-                <>
+              {step === 3 && customerIdentity && (
+                <div className="request-review">
                   <div className="review-trip">
+                    <h2>Trip details</h2>
+                    <p>Rental period: {period || "Dates selected below"}</p>
                     <p>
-                      Rental period: {quote.period || "Dates selected below"}
-                    </p>
-
-                    <p>
-                      {quote.start.replace("T", " at ")} —{" "}
-                      {quote.end.replace("T", " at ")} ET
+                      {trip.start.replace("T", " at ")} —{" "}
+                      {trip.end.replace("T", " at ")} ET
                     </p>
                     <p>
-                      {quote.location === "airport"
+                      {trip.location === "airport"
                         ? "DAB airport delivery by arrangement"
                         : "Daytona Beach appointment pickup"}
                     </p>
-                    <p>{quote.mileage}</p>
+                    {period === "monthly" && (
+                      <p className="small-note">{monthlyTerms}</p>
+                    )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => moveStep(1)}
+                    >
+                      Edit trip
+                    </Button>
+                  </div>
+                  <section
+                    className="review-quote"
+                    aria-label="Current quote"
+                    aria-busy={busy && !submitting.current}
+                  >
+                    <h2 ref={quoteHeading} tabIndex={-1}>
+                      Trip total
+                    </h2>
+                    <p role="status">
+                      {quoteNotice ||
+                        "Refresh your quote to review the current total. Your information and documents are saved."}
+                    </p>
+                    {error && (
+                      <p role="alert" className="error-message">
+                        {error}
+                      </p>
+                    )}
+                    {quote && (
+                      <>
+                        {changes.length > 0 && (
+                          <ul
+                            className="quote-changes"
+                            aria-label="Quote changes"
+                          >
+                            {changes.map((change) => (
+                              <li key={change}>{change}</li>
+                            ))}
+                          </ul>
+                        )}
+                        <PriceSummary quote={quote} />
+                      </>
+                    )}
+                    <Button
+                      type="button"
+                      variant={quote ? "outline" : "primary"}
+                      disabled={
+                        busy || !draft || !sameTrip(draft.data.trip, trip)
+                      }
+                      loading={busy && !submitting.current}
+                      onClick={() => void getQuote(draft!.data.trip)}
+                    >
+                      {busy && !submitting.current
+                        ? "Checking quote…"
+                        : "Refresh quote"}
+                    </Button>
+                    {!quote && !busy && (
+                      <p className="small-note">
+                        If this car or these dates are unavailable, edit your
+                        trip. Your saved documents stay with your draft.
+                      </p>
+                    )}
+                  </section>
+                  <details className="review-driver" open>
+                    <summary>Driver & documents</summary>
                     <p>
                       {draft?.data.contact.name} · {customerIdentity?.email} ·{" "}
                       {draft?.data.contact.phone}
                     </p>
-                  </div>
-                  {draft && (
-                    <>
-                      <h3>Renter information</h3>
-                      <IntakeSummary value={draft.data.intake} />
-                      <p>
-                        {draft.data.intake.confirmed
-                          ? "You confirmed these fields; owner review is pending."
-                          : "Confirm your renter information before submitting."}
-                      </p>
-                      <h3>Documents</h3>
-                      {(
-                        quote.policy?.requiredDocuments || [
-                          "license",
-                          "insurance",
-                        ]
-                      ).map((kind) => (
-                        <p key={kind}>
-                          {kind}:{" "}
-                          {draft.documents.find((d) => d.kind === kind)
-                            ? "Uploaded — awaiting owner review"
-                            : "Required — not uploaded"}
+                    {draft && (
+                      <>
+                        <h3>Renter information</h3>
+                        <IntakeSummary value={draft.data.intake} />
+                        <p>
+                          {draft.data.intake.confirmed
+                            ? "You confirmed these fields; owner review is pending."
+                            : "Confirm your renter information before submitting."}
                         </p>
-                      ))}
-                    </>
-                  )}
-                  <PriceSummary quote={quote} />
+                        <h3>Documents</h3>
+                        {(
+                          quote?.policy?.requiredDocuments ||
+                          lastQuote.current?.policy?.requiredDocuments || [
+                            "license",
+                            "insurance",
+                          ]
+                        ).map((kind) => (
+                          <p key={kind}>
+                            {kind}:{" "}
+                            {draft.documents.find((d) => d.kind === kind)
+                              ? "Uploaded — awaiting owner review"
+                              : "Required — not uploaded"}
+                          </p>
+                        ))}
+                      </>
+                    )}
+                  </details>
                   <div className="notice">
                     <Clock3 />
                     <span>
-                      Manual approval required. The team checks driver
-                      eligibility, insurance and the shared Turo calendar before
-                      confirming. No payment is taken now. Any alternative
-                      vehicle requires your explicit acceptance.
+                      This is a request, not a confirmed rental. Owner approval
+                      is required. No payment is taken now. You must explicitly
+                      accept any alternative vehicle.
                     </span>
                   </div>
                   <label className="checkbox-row">
                     <input
                       type="checkbox"
                       checked={accepted}
+                      disabled={
+                        !quote ||
+                        busy ||
+                        !draft ||
+                        !sameTrip(draft.data.trip, trip)
+                      }
                       onChange={(e) => setAccepted(e.target.checked)}
                     />
                     <span>
@@ -681,28 +915,32 @@ export function BookingWizard({
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => setStep(2)}
+                      disabled={busy}
+                      onClick={() => moveStep(2)}
                     >
                       Back
                     </Button>
                     <Button
                       type="button"
                       disabled={
-                        !accepted || !customerIdentity || !draft || busy
+                        !quote ||
+                        !accepted ||
+                        !customerIdentity ||
+                        !draft ||
+                        !sameTrip(draft.data.trip, trip) ||
+                        busy
                       }
-                      loading={busy}
+                      loading={busy && submitting.current}
                       onClick={submit}
                     >
-                      {state.demo
-                        ? "Try booking request"
-                        : "Submit booking request"}
+                      Submit request
                     </Button>
                   </div>
                   <p className="small-note">
                     Quote expires after 15 minutes. Availability is checked
                     again when you submit.
                   </p>
-                </>
+                </div>
               )}
             </div>
             <aside className="booking-aside">
@@ -726,7 +964,9 @@ export function BookingWizard({
                   {busy
                     ? "Calculating your quote…"
                     : trip.start && trip.end
-                      ? "Select ‘See my trip total’ to calculate your quote."
+                      ? step === 3
+                        ? "Refresh your quote to review the current total."
+                        : "Select ‘See my trip total’ to calculate your quote."
                       : "Choose pickup and return dates to calculate a quote."}
                 </p>
               )}

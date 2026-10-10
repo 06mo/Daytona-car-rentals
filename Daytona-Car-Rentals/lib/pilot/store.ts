@@ -20,6 +20,7 @@ import {
   type Reservation,
 } from "./model";
 import { z } from "zod";
+import { sameTrip } from "./quote-state";
 
 export { PilotError } from "./errors";
 import { PilotError } from "./errors";
@@ -147,6 +148,59 @@ export async function quote(input: unknown): Promise<Quote> {
     return q;
   });
 }
+// Used for both restored UI quotes and final submission, under the same transaction lock.
+async function validateStoredQuote(q: Quote) {
+  assertDirect(q.vehicleId);
+  const s = await settings(),
+    rate = await config<FleetRate>("rate:" + q.vehicleId);
+  if (q.demo !== isDemo())
+    throw new PilotError("This quote belongs to a different environment.", 409);
+  if (
+    q.expiresAt <= Date.now() ||
+    q.settingsRevision !== s.revision ||
+    q.rateRevision !== rate.revision ||
+    !rate.enabled
+  )
+    throw new PilotError(
+      "The quote expired or settings changed. Refresh the quote and accept the current total.",
+      409,
+    );
+  if (
+    !isDemo() &&
+    (!launchReady(s) || (q.location === "airport" && !s.airportApproved))
+  )
+    throw new PilotError("Direct requests are currently closed.", 503);
+  if (q.startMs < Date.now() + 2 * 3600000)
+    throw new PilotError("Pickup is too soon. Choose a later time.", 409);
+  await assertAvailable(q);
+}
+export async function restoreQuote(input: unknown) {
+  const a = z
+    .object({ resumeQuoteId: z.string().uuid(), trip: tripSchema })
+    .parse(input);
+  return transaction(async () => {
+    const q = (
+      await query("SELECT data FROM dcr_private.quotes WHERE id=$1", [
+        a.resumeQuoteId,
+      ])
+    ).rows[0]?.data as Quote | undefined;
+    if (!q || !sameTrip(q, a.trip))
+      throw new PilotError(
+        "No matching saved quote. Refresh the quote for this trip.",
+        409,
+      );
+    try {
+      await validateStoredQuote(q);
+      return { quote: q, valid: true as const };
+    } catch (e) {
+      // Only a database-sourced quote is returned as the previous-price comparison.
+      // This does not extend its expiry or authorize a request.
+      if (e instanceof PilotError)
+        return { quote: q, valid: false as const, reason: e.message };
+      throw e;
+    }
+  });
+}
 export async function createRequest(
   input: unknown,
   identity?: CustomerIdentity,
@@ -192,32 +246,7 @@ export async function createRequest(
     ).rows[0];
     if (!row) throw new PilotError("Please get a new quote.", 409);
     const q: Quote = row.data;
-    assertDirect(q.vehicleId);
-    const s = await settings(),
-      rate = await config<FleetRate>("rate:" + q.vehicleId);
-    if (q.demo !== isDemo())
-      throw new PilotError(
-        "This quote belongs to a different environment.",
-        409,
-      );
-    if (
-      q.expiresAt <= Date.now() ||
-      q.settingsRevision !== s.revision ||
-      q.rateRevision !== rate.revision ||
-      !rate.enabled
-    )
-      throw new PilotError(
-        "The quote expired or settings changed. Return to Choose for a fresh total.",
-        409,
-      );
-    if (
-      !isDemo() &&
-      (!launchReady(s) || (q.location === "airport" && !s.airportApproved))
-    )
-      throw new PilotError("Direct requests are currently closed.", 503);
-    if (q.startMs < Date.now() + 2 * 3600000)
-      throw new PilotError("Pickup is too soon. Choose a later time.", 409);
-    await assertAvailable(q);
+    await validateStoredQuote(q);
     const now = Date.now();
     const r: Reservation = {
       id: randomUUID(),

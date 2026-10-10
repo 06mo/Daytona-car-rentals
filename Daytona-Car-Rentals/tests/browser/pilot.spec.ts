@@ -68,7 +68,7 @@ test("three-screen request flow shows totals and never claims confirmation", asy
   await page.getByRole("button", { name: "See my trip total" }).click();
   await expect(page.getByText("Trip total", { exact: true })).toBeVisible();
   await page
-    .getByRole("button", { name: "Continue to driver & documents" })
+    .getByRole("button", { name: "Driver & documents" })
     .click();
   await expect(
     page.getByRole("heading", { name: "Let’s get you ready." }),
@@ -84,7 +84,7 @@ test("three-screen request flow shows totals and never claims confirmation", asy
     page.getByRole("heading", { name: "One last look." }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Try booking request" }),
+    page.getByRole("button", { name: "Submit request" }),
   ).toBeDisabled();
   await readyImages(page);
   await page.screenshot({
@@ -102,9 +102,9 @@ test("three-screen request flow shows totals and never claims confirmation", asy
     fullPage: true,
   });
   await page.getByRole("checkbox").check();
-  await page.getByRole("button", { name: "Try booking request" }).click();
+  await page.getByRole("button", { name: "Submit request" }).click();
   await expect(
-    page.getByRole("heading", { name: "Preview request complete." }),
+    page.getByRole("heading", { name: "Request submitted — awaiting approval" }),
   ).toBeVisible();
   await expect(page.getByText(/Only synthetic renter records/)).toBeVisible();
 });

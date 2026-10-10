@@ -7,6 +7,20 @@ import { IntakeFields } from "./IntakeFields";
 import { intakeSchema } from "@/lib/customer/intake";
 import { requestSchema } from "@/lib/pilot/model";
 import { DocumentUpload } from "./DocumentUpload";
+import { tripKey } from "@/lib/pilot/quote-state";
+function draftDataKey(data: Omit<DraftData, "trip"> & { trip: TripInput }) {
+  return JSON.stringify([
+    tripKey(data.trip),
+    data.contact.name,
+    data.contact.phone,
+    data.intake.legalName,
+    data.intake.birthDate,
+    data.intake.licenseRegion,
+    data.intake.licenseExpiry,
+    data.intake.address,
+    data.intake.confirmed,
+  ]);
+}
 export type DraftView = Awaited<ReturnType<typeof loadDraft>>;
 export function DraftEditor({
   user,
@@ -66,6 +80,15 @@ export function DraftEditor({
       .catch(() => {})
       .then(async () => {
         if (!latest.current || !alive.current) return;
+        const snapshot = { ...latest.current, trip: tripRef.current };
+        if (
+          current.current &&
+          draftDataKey(current.current.data) === draftDataKey(snapshot)
+        ) {
+          receive(current.current);
+          setStatus("Draft saved privately. No request submitted.");
+          return current.current;
+        }
         setBusy(true);
         setError("");
         try {
@@ -73,7 +96,7 @@ export function DraftEditor({
             action: "save",
             id: current.current?.id || newId.current,
             revision: current.current?.revision || 0,
-            data: { ...latest.current, trip: tripRef.current },
+            data: snapshot,
           });
           receive(d);
           setStatus("Draft saved privately. No request submitted.");
@@ -288,7 +311,11 @@ export function DraftEditor({
           revision: draft?.revision,
           expectedOwner: user.id,
         }}
-        disabled={busy || !draft || status === "Saving changes…"}
+        disabled={
+          busy ||
+          !draft ||
+          draftDataKey(draft.data) !== draftDataKey({ ...values, trip })
+        }
         demo={demo}
         onBusy={setBusy}
         done={receive}
@@ -308,7 +335,7 @@ export function DraftEditor({
               window.location.assign("/my-trip");
           }}
         >
-          Save and finish later
+          Save draft
         </button>
         <button
           className="journey-primary"

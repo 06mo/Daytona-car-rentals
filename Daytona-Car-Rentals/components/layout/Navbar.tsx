@@ -32,7 +32,7 @@ export function Navbar() {
     { href: "/my-trip", label: "My trip" },
   ];
   return (
-    <header className="site-nav">
+    <header className={`site-nav${path === "/booking" ? " booking-nav" : ""}`}>
       <div className="container nav-inner">
         <Link href="/" aria-label="Daytona Car Rentals home">
           <Brand />

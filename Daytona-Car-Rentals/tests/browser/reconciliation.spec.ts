@@ -38,7 +38,7 @@ for (const change of ["vehicle", "dates", "pickup"] as const) {
     await page.getByRole("button", { name: "See my trip total" }).click();
     await ready;
     await expect(
-      page.getByRole("button", { name: "Continue to driver & documents" }),
+      page.getByRole("button", { name: "Driver & documents" }),
     ).toHaveCount(0);
     if (change === "vehicle") {
       await page.locator(".change-car summary").click();
@@ -56,10 +56,10 @@ for (const change of ["vehicle", "dates", "pickup"] as const) {
     await stale;
     await page.waitForLoadState("networkidle");
     await expect(
-      page.getByRole("button", { name: "Continue to driver & documents" }),
+      page.getByRole("button", { name: "Driver & documents" }),
     ).toHaveCount(0);
     await expect(
-      page.getByRole("button", { name: "Try booking request" }),
+      page.getByRole("button", { name: "Submit request" }),
     ).toHaveCount(0);
     await expect(page.locator(".quote-ready")).toHaveCount(0);
     await page.unroute("**/api/pilot/quote");
@@ -79,9 +79,7 @@ for (const change of ["vehicle", "dates", "pickup"] as const) {
     );
     expect(quote.end).toBe(change === "dates" ? `2033-${month}-10T10:00` : end);
     expect(quote.location).toBe(change === "pickup" ? "airport" : "local");
-    await page
-      .getByRole("button", { name: "Continue to driver & documents" })
-      .click();
+    await page.getByRole("button", { name: "Driver & documents" }).click();
     await page.getByLabel("Full name").fill("Synthetic Review Renter");
     await expect(page.getByLabel("Email", { exact: true })).toHaveValue(
       "renter@example.invalid",
@@ -120,13 +118,15 @@ for (const change of ["vehicle", "dates", "pickup"] as const) {
         r.request().method() === "POST",
     );
     await page.getByRole("checkbox").check();
-    await page.getByRole("button", { name: "Try booking request" }).click();
+    await page.getByRole("button", { name: "Submit request" }).click();
     const payload = (await submission).postDataJSON();
     expect(payload.quoteId).toBe(quote.id);
     expect(payload.draftId).toBeTruthy();
     const saved = await (await receipt).json();
     await expect(
-      page.getByRole("heading", { name: "Preview request complete." }),
+      page.getByRole("heading", {
+        name: "Request submitted — awaiting approval",
+      }),
     ).toBeVisible();
     const replay = await page.request.post("/api/pilot/requests", {
       data: payload,
@@ -178,7 +178,9 @@ for (const width of [390, 320]) {
       await expect(page.locator(".selected-car")).toContainText(
         "Ford EcoSport",
       );
-      await expect(page.locator(".quote-ready")).toHaveCount(0);
+      if (attempt === 0)
+        await expect(page.locator(".quote-ready")).toHaveCount(0);
+      else await expect(page.locator(".quote-ready")).toBeVisible(); // Same trip: server-revalidated quote survives history.
       if (attempt === 0) {
         await page.getByRole("button", { name: "See my trip total" }).click();
         await expect(page.locator(".quote-ready")).toBeVisible();
@@ -225,11 +227,9 @@ for (const width of [390, 320]) {
     await expect(page.locator("#return-time")).toHaveValue("2034-02-08T10:00");
     await expect(page.locator("#location")).toHaveValue("airport");
     await expect(page.locator(".selected-car")).toContainText("Ford EcoSport");
-    await expect(page.locator(".quote-ready")).toHaveCount(0);
+    await expect(page.locator(".quote-ready")).toBeVisible();
     await page.getByRole("button", { name: "See my trip total" }).click();
-    await page
-      .getByRole("button", { name: "Continue to driver & documents" })
-      .click();
+    await page.getByRole("button", { name: "Driver & documents" }).click();
     await page.getByRole("button", { name: "Back", exact: true }).focus();
     await page.keyboard.press("Enter");
     const heading = page.getByRole("heading", { name: "Plan your rental." });
