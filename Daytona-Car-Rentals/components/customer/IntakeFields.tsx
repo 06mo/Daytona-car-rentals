@@ -21,7 +21,7 @@ export function IntakeFields({
         identity verification is performed. Do not enter Social Security or
         payment details.
       </p>
-      <div className="form-grid">
+      <div className="form-grid renter-fields">
         {[
           ["legalName", "Legal name", "text"],
           ["birthDate", "Date of birth", "date"],
@@ -34,6 +34,7 @@ export function IntakeFields({
             <input
               name={name}
               type={type}
+              className={type === "date" ? "rental-date-control" : undefined}
               value={String(value[name as keyof IntakeValues] || "")}
               maxLength={name === "address" ? 300 : 100}
               onChange={(e) =>

@@ -1442,7 +1442,7 @@ summary:focus-visible, [tabindex="-1"]:focus-visible { outline:3px solid var(--t
 }
 .comparison-features { font-size:.9rem; color:var(--ink-muted); margin:16px 0; }
 .selected-car { margin-bottom:20px; }
-@media(max-width:360px) { .booking-main input[type="datetime-local"] { padding-inline:8px; font-size:.875rem; } }
+@media(max-width:360px) { .booking-main input[type="datetime-local"] { padding-inline:8px; } }
 .photo-label { right:20px; }
 
 /* Focused coastal UX refinement: same palette, more immediate choices. */
@@ -1617,3 +1617,30 @@ html:has(.booking-page), html:has(.booking-confirmation) { scroll-behavior: auto
 /* Long support addresses must reflow with enlarged text in the request journey. */
 body:has(.booking-page) .footer-grid > *,
 body:has(.booking-confirmation) .footer-grid > * { min-width: 0; overflow-wrap: anywhere; }
+
+/* Shared renter intake: constrain the grid track as well as the native control.
+   Safari's native date appearance differs from a text input even at width:100%.
+   Keep the actual date picker; normalize its box, not the text size or overflow. */
+.renter-fields { min-inline-size: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.renter-fields > label { display: grid; grid-template-columns: minmax(0, 1fr); min-inline-size: 0; }
+.renter-fields input {
+  display: block; box-sizing: border-box; inline-size: 100%; min-inline-size: 0;
+  max-inline-size: 100%; min-height: 48px; padding-inline: 12px;
+}
+input.rental-date-control {
+  display: block; box-sizing: border-box; inline-size: 100%; min-inline-size: 0;
+  max-inline-size: 100%; appearance: none; -webkit-appearance: none;
+}
+input.rental-date-control::-webkit-date-and-time-value { min-inline-size: 0; text-align: left; }
+input.rental-date-control::-webkit-datetime-edit { min-inline-size: 0; padding: 0; }
+input.rental-date-control::-webkit-calendar-picker-indicator { margin: 0; padding: 0; width: 20px; height: 20px; }
+.draft-actions { display: flex; align-items: start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 16px; }
+.draft-secondary-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.booking-page .draft-actions button { min-height: 48px; padding: 10px 12px; margin: 0; line-height: 1.4; }
+@media (max-width: 640px) {
+  .renter-fields { grid-template-columns: minmax(0, 1fr); }
+  .draft-actions { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .draft-secondary-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .draft-actions button { width: 100%; min-width: 0; }
+  .booking-page .draft-secondary-actions button { padding-inline: 8px; }
+}

@@ -69,3 +69,15 @@ A delayed-upload regression also exposed a redundant intake autosave advancing
 its document revision. Compare the saved and current intake before enabling
 uploads, avoid no-op saves, and preserve strict server revision checks. Tests
 must deliberately delay responses; the happy path alone hid this race.
+
+## Shared intake sizing (2026-10-10)
+
+Owner-reported iPhone overflow affected Date of birth and License expiration,
+not only document cards. The shared intake retained native appearance while
+document dates had WebKit sizing resets. Local Chromium/Linux WebKit did not
+reproduce the reported native overflow; they did reproduce cramped actions.
+Normalize the shared date controls and zero-minimum grid tracks, then measure
+every ancestor content boundary with populated dates at 100%/200% text.
+Owner-requested action hierarchy: primary Continue to review above secondary
+Save draft and Back. Do not interpret an uploaded screenshot as live UI.
+This evidence does not establish physical iOS Safari correctness.

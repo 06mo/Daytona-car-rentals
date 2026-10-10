@@ -226,6 +226,7 @@ function DocumentCard<T>({
             <input
               id={id}
               type="date"
+              className="rental-date-control"
               value={validUntil}
               onChange={(e) => setValidUntil(e.target.value)}
             />

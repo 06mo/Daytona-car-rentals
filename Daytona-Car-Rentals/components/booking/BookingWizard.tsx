@@ -642,6 +642,7 @@ export function BookingWizard({
                         id="pickup-time"
                         label="Pickup date & time"
                         type="datetime-local"
+                        className="rental-date-control"
                         required
                         value={trip.start}
                         onChange={(e) => update("start", e.target.value)}
@@ -650,6 +651,7 @@ export function BookingWizard({
                         id="return-time"
                         label="Return date & time"
                         type="datetime-local"
+                        className="rental-date-control"
                         required
                         value={trip.end}
                         min={trip.start}
@@ -751,13 +753,14 @@ export function BookingWizard({
                     setDraft(null);
                     moveStep(2);
                   }}
+                  onBack={() => moveStep(1)}
                   onReady={() => {
                     setAccepted(false);
                     moveStep(3);
                   }}
                 />
               )}
-              {step === 2 && (
+              {step === 2 && !customerIdentity && (
                 <Button
                   variant="outline"
                   type="button"

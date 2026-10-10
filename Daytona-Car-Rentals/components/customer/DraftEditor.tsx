@@ -29,6 +29,7 @@ export function DraftEditor({
   demo,
   onSaved,
   onReady,
+  onBack,
   onAuthLost,
   requiredDocuments,
 }: {
@@ -39,6 +40,7 @@ export function DraftEditor({
   demo: boolean;
   onSaved: (d: DraftView | null) => void;
   onReady: () => void;
+  onBack: () => void;
   onAuthLost: () => void;
 }) {
   const [draft, setDraft] = useState<DraftView | null>(null),
@@ -326,17 +328,7 @@ export function DraftEditor({
           {error}
         </p>
       )}
-      <div className="form-actions">
-        <button
-          className="journey-secondary"
-          disabled={busy}
-          onClick={async () => {
-            if (await save().catch(() => null))
-              window.location.assign("/my-trip");
-          }}
-        >
-          Save draft
-        </button>
+      <div className="draft-actions">
         <button
           className="journey-primary"
           disabled={busy}
@@ -364,6 +356,26 @@ export function DraftEditor({
         >
           Continue to review
         </button>
+        <div className="draft-secondary-actions">
+          <button
+            className="journey-secondary"
+            disabled={busy}
+            onClick={async () => {
+              if (await save().catch(() => null))
+                window.location.assign("/my-trip");
+            }}
+          >
+            Save draft
+          </button>
+          <button
+            type="button"
+            className="journey-secondary"
+            disabled={busy}
+            onClick={onBack}
+          >
+            Back
+          </button>
+        </div>
       </div>
     </section>
   );

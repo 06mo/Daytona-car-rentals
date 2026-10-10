@@ -87,3 +87,13 @@ uses the measured sticky-header height, including enlarged text; readable text
 wraps rather than being clipped. Implementation and verification entry points:
 [quote-recovery.md](../quote-recovery.md). These are request-wizard rules, not a
 new global design system.
+
+## Shared intake controls and actions
+
+Apply native date sizing consistently in the shared IntakeFields component,
+document expiration controls and wizard pickup/return inputs. Test populated
+values against label, grid, form and panel content bounds in both browser engines,
+including enlarged text. A viewport-only overflow check is insufficient.
+Keep Continue to review full-width above a spaced Save draft/Back row on mobile.
+Do not clip controls, shrink text or disable zoom. Physical iPhone verification
+remains necessary even when Linux WebKit passes.
