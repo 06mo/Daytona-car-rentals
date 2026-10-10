@@ -1534,3 +1534,26 @@ summary:focus-visible, [tabindex="-1"]:focus-visible { outline:3px solid var(--t
 .document-actions { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; }
 .document-card input[hidden] { display: none; }
 .document-card :focus-visible { outline: 3px solid #126b68; outline-offset: 3px; }
+
+/* Native date controls must shrink inside the card, including WebKit's inner value. */
+.document-card { display: grid; gap: .5rem; margin-block: 0; padding: 16px; }
+.document-card > *, .document-card fieldset > *, .document-card label { min-width: 0; }
+.document-card.document-upload p, .document-card label { margin: 0; }
+.document-card fieldset { display: grid; gap: .65rem; }
+.document-card input[type="date"] {
+  display: block; box-sizing: border-box; width: 100%; max-width: 100%;
+  min-width: 0; min-height: 48px; padding: .65rem 8px;
+  appearance: none; -webkit-appearance: none;
+}
+.document-card input[type="date"]::-webkit-date-and-time-value { min-width: 0; text-align: left; }
+.document-card .document-actions { gap: .5rem .75rem; }
+.document-card .document-actions button { margin: 0; min-height: 48px; max-width: 100%; white-space: normal; }
+.document-card .document-expiration { display: grid; gap: .2rem; }
+.document-expiration > span { font-size: .9rem; font-weight: 600; }
+@media (max-width: 360px) {
+  .document-card { padding-inline: 12px; }
+  .document-card input[type="date"] { padding-inline: 4px; }
+}
+.document-card input[type="date"]::-webkit-calendar-picker-indicator {
+  margin: 0; padding: 0; width: 20px; height: 20px;
+}

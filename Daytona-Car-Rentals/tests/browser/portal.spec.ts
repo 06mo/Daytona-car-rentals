@@ -246,7 +246,7 @@ test("renter intake, private images and owner review queue work together", async
     await doc.getByLabel("Expiration date").fill("2045-01-01");
     await doc.getByLabel("This is a synthetic test image").check();
     await doc
-      .getByRole("button", { name: "Upload image", exact: true })
+      .getByRole("button", { name: "Save image", exact: true })
       .click();
     await expect(doc).not.toBeVisible();
     await expect(card).toContainText("Private documents · 2 submitted");

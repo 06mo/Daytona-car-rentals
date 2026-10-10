@@ -36,3 +36,17 @@ at 320, 390 and 1440px. Evidence:
 
 No application edits were made in this evaluation. Physical camera behavior,
 assistive technology and hosted execution remain untested in this review.
+
+## Native document picker — owner-approved refinement, 2026-10-10
+
+The owner reports iPhone's standard picker already offers Photo Library, Take
+Photo and Choose File. Prefer those native choices over a second camera button
+and capture-specific input. This is an approved interaction decision, not proof
+that every phone image format is supported. JPEG/PNG limits remain unchanged.
+
+Use one selection action per state, with a separate explicit save for a selected
+image. Present saved expiration metadata as text. Constrain native date inputs
+and their grid ancestors with minimum widths and border-box sizing, rather than
+clipping overflow or reducing text size. Scoped card spacing must also override
+the existing booking form paragraph margins. Browser/physical-device evidence
+is recorded separately in the native-picker handoff.

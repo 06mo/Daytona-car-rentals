@@ -25,12 +25,12 @@ function documentCard(page: any, kind: string) {
     exact: true,
   });
 }
-async function upload(page: any, kind: string, camera = false) {
+async function upload(page: any, kind: string) {
   const card = documentCard(page, kind);
   const chooser = page.waitForEvent("filechooser");
   await card
     .getByRole("button", {
-      name: camera ? "Use camera" : "Upload image",
+      name: /^(Upload image|Replace image)$/,
       exact: true,
     })
     .click();
@@ -48,7 +48,7 @@ async function upload(page: any, kind: string, camera = false) {
   await expect(card.getByText(/Selected image — not uploaded/)).toBeVisible();
   await card.getByLabel("Expiration date").fill("2045-01-01");
   await card.getByLabel("This is a synthetic test image").check();
-  await card.getByRole("button", { name: "Upload image", exact: true }).click();
+  await card.getByRole("button", { name: "Save image", exact: true }).click();
   await expect(card.getByRole("status")).toHaveText(
     "Uploaded — awaiting review",
   );
@@ -60,14 +60,6 @@ for (const width of [1440, 390, 320])
   }) => {
     await customerSession(page.context());
     await page.setViewportSize({ width, height: width === 1440 ? 900 : 844 });
-    if (width !== 1440)
-      await page.addInitScript(() => {
-        // Desktop Chromium does not expose mobile capture; emulate only that capability.
-        Object.defineProperty(HTMLInputElement.prototype, "capture", {
-          configurable: true,
-          value: "",
-        });
-      });
     const day = width === 1440 ? "01" : width === 390 ? "11" : "21";
     await page.goto(
       `/booking?vehicle=corolla-3275798&period=weekly&start=2041-05-${day}T10:00&end=2041-05-${String(+day + 4).padStart(2, "0")}T10:00`,
@@ -86,7 +78,7 @@ for (const width of [1440, 390, 320])
     await fill(page);
     await expect(
       page.getByRole("button", { name: "Use camera", exact: true }),
-    ).toHaveCount(width === 1440 ? 0 : 2);
+    ).toHaveCount(0);
     const initialCard = documentCard(page, "license");
     await initialCard
       .getByRole("button", { name: "Upload image", exact: true })
@@ -95,10 +87,10 @@ for (const width of [1440, 390, 320])
       initialCard.getByRole("button", { name: "Upload image", exact: true }),
     ).toBeFocused();
     await upload(page, "license");
-    await upload(page, "insurance", width === 320);
+    await upload(page, "insurance");
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({
-      path: `/projects/daytona-handoff/document-cards/screenshots/${width}-driver-documents.png`,
+      path: `/projects/daytona-handoff/document-card-native-picker/regressions/${width}-driver-documents.png`,
       fullPage: true,
     });
     const id = new URL(page.url()).searchParams.get("draft");
@@ -135,22 +127,22 @@ for (const width of [1440, 390, 320])
       .getByLabel("This is a synthetic test image")
       .check();
     await documentCard(page, "license")
-      .getByRole("button", { name: "Upload image", exact: true })
+      .getByRole("button", { name: "Save image", exact: true })
       .click();
     await expect(page.locator("main").getByRole("alert")).toContainText(
       "Connection interrupted",
     );
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({
-      path: `/projects/daytona-handoff/document-cards/screenshots/${width}-replacement-failure.png`,
+      path: `/projects/daytona-handoff/document-card-native-picker/regressions/${width}-replacement-failure.png`,
       fullPage: true,
     });
     await page.unroute("**/api/customer/drafts");
     const failedCard = documentCard(page, "license");
     await expect(
-      failedCard.getByRole("button", { name: "Retry upload" }),
+      failedCard.getByRole("button", { name: "Retry save" }),
     ).toBeVisible();
-    await failedCard.getByRole("button", { name: "Retry upload" }).click();
+    await failedCard.getByRole("button", { name: "Retry save" }).click();
     await expect(
       failedCard.getByText(/Selected image — not uploaded/),
     ).toHaveCount(0);
@@ -182,7 +174,7 @@ for (const width of [1440, 390, 320])
     ).toBeTruthy();
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({
-      path: `/projects/daytona-handoff/document-cards/screenshots/${width}-upload-retry.png`,
+      path: `/projects/daytona-handoff/document-card-native-picker/regressions/${width}-upload-retry.png`,
       fullPage: true,
     });
     await page.getByRole("button", { name: "Continue to review" }).click();
@@ -197,7 +189,7 @@ for (const width of [1440, 390, 320])
       .check();
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({
-      path: `/projects/daytona-handoff/document-cards/screenshots/${width}-review.png`,
+      path: `/projects/daytona-handoff/document-card-native-picker/regressions/${width}-review.png`,
       fullPage: true,
     });
     const response = page.waitForResponse(
@@ -225,7 +217,7 @@ for (const width of [1440, 390, 320])
     ).toHaveCount(0);
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({
-      path: `/projects/daytona-handoff/document-cards/screenshots/${width}-my-trips.png`,
+      path: `/projects/daytona-handoff/document-card-native-picker/regressions/${width}-my-trips.png`,
       fullPage: true,
     });
   });
@@ -448,16 +440,10 @@ test("account switch discards delayed previous-customer My trips and draft respo
   await expect(page.getByText("Synthetic previous account")).toHaveCount(0);
 });
 
-test("document cards share file/camera selection, validate inline and follow quote requirements", async ({
+test("document cards use one native picker, validate inline and follow quote requirements", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.addInitScript(() =>
-    Object.defineProperty(HTMLInputElement.prototype, "capture", {
-      configurable: true,
-      value: "",
-    }),
-  );
   await customerSession(page.context());
   await page.route("**/api/pilot/quote", async (route) => {
     if (route.request().method() !== "POST") return route.continue();
@@ -499,15 +485,15 @@ test("document cards share file/camera selection, validate inline and follow quo
       mimeType: "image/png",
       buffer: await image("#aaa"),
     });
-  const camera = await image("#bbb");
+  const replacement = await image("#bbb");
   const chooser = page.waitForEvent("filechooser");
-  await card.getByRole("button", { name: "Use camera" }).click();
+  await card.getByRole("button", { name: "Replace image" }).click();
   await (
     await chooser
-  ).setFiles({ name: "camera.png", mimeType: "image/png", buffer: camera });
+  ).setFiles({ name: "replacement.png", mimeType: "image/png", buffer: replacement });
   await expect(card.getByRole("img")).toHaveCount(1);
   await expect(card.getByRole("status")).toHaveText("Missing");
-  await card.getByRole("button", { name: "Upload image", exact: true }).click();
+  await card.getByRole("button", { name: "Save image", exact: true }).click();
   await expect(card.getByRole("alert")).toContainText("expiration date");
   await card.getByLabel("Expiration date").fill("2045-01-01");
   await card.getByLabel("This is a synthetic test image").check();
@@ -519,13 +505,13 @@ test("document cards share file/camera selection, validate inline and follow quo
       route.request().postDataJSON().action === "upload"
     ) {
       expect(route.request().postDataJSON().content).toBe(
-        camera.toString("base64"),
+        replacement.toString("base64"),
       );
       await gate;
     }
     await route.continue();
   });
-  await card.getByRole("button", { name: "Retry upload", exact: true }).click();
+  await card.getByRole("button", { name: "Retry save", exact: true }).click();
   await expect(card.getByRole("status")).toHaveText("Uploading");
   release();
   await expect(card.getByRole("status")).toHaveText(
@@ -545,9 +531,9 @@ test("document cards share file/camera selection, validate inline and follow quo
       });
     return route.continue();
   });
-  await card.getByRole("button", { name: "Replace", exact: true }).focus();
+  await card.getByRole("button", { name: "Replace image", exact: true }).focus();
   await expect(
-    card.getByRole("button", { name: "Replace", exact: true }),
+    card.getByRole("button", { name: "Replace image", exact: true }),
   ).toBeFocused();
   await card
     .getByLabel(/image file/)
@@ -557,7 +543,7 @@ test("document cards share file/camera selection, validate inline and follow quo
       buffer: await image("#ccc"),
     });
   await card.getByLabel("This is a synthetic test image").check();
-  await card.getByRole("button", { name: "Upload image", exact: true }).click();
+  await card.getByRole("button", { name: "Save image", exact: true }).click();
   await expect(card.getByRole("alert")).toContainText("Synthetic rejection");
   await card.getByRole("button", { name: "Remove selected image" }).click();
   await expect(card.getByRole("img")).toHaveAttribute("src", savedImage!);

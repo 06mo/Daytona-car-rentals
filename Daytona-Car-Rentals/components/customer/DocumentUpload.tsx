@@ -55,7 +55,6 @@ function DocumentCard<T>({
   const title = kind === "license" ? "Driver’s license" : "Insurance document";
   const id = useId(),
     picker = useRef<HTMLInputElement>(null),
-    camera = useRef<HTMLInputElement>(null),
     primary = useRef<HTMLButtonElement>(null);
   const [restoreFocus, setRestoreFocus] = useState(false);
   useEffect(() => {
@@ -70,14 +69,6 @@ function DocumentCard<T>({
     [consent, setConsent] = useState(false);
   const [progress, setProgress] = useState<number | null>(null),
     [error, setError] = useState("");
-  const [mobileCamera, setMobileCamera] = useState(false);
-  useEffect(() => {
-    setMobileCamera(
-      navigator.maxTouchPoints > 0 &&
-        window.matchMedia("(max-width: 767px)").matches &&
-        "capture" in document.createElement("input"),
-    );
-  }, []);
   useEffect(() => {
     if (!file) setValidUntil(saved?.valid_until || "");
   }, [saved?.id, saved?.valid_until, file]);
@@ -214,7 +205,7 @@ function DocumentCard<T>({
           Selected image — not uploaded.{" "}
           {saved
             ? "Your saved document stays in place until this upload succeeds."
-            : "Upload to save it privately."}
+            : "Select Save image to upload it privately."}
         </p>
       )}
       <fieldset disabled={disabled || progress !== null}>
@@ -229,30 +220,22 @@ function DocumentCard<T>({
             e.target.value = "";
           }}
         />
-        {mobileCamera && (
-          <input
-            ref={camera}
-            hidden
-            type="file"
-            aria-label={`${title} camera image`}
-            accept="image/jpeg,image/png"
-            capture="environment"
-            onChange={(e) => {
-              select(e.target.files?.[0]);
-              e.target.value = "";
-            }}
-          />
+        {file ? (
+          <label htmlFor={id}>
+            Expiration date
+            <input
+              id={id}
+              type="date"
+              value={validUntil}
+              onChange={(e) => setValidUntil(e.target.value)}
+            />
+          </label>
+        ) : saved && (
+          <p className="document-expiration">
+            <span>Expiration date</span>
+            <time dateTime={saved.valid_until}>{saved.valid_until || "Not recorded"}</time>
+          </p>
         )}
-        <label htmlFor={id}>
-          Expiration date
-          <input
-            id={id}
-            type="date"
-            value={validUntil}
-            onChange={(e) => setValidUntil(e.target.value)}
-            readOnly={!file}
-          />
-        </label>
         {file && (
           <label className="checkbox-row">
             <input
@@ -266,27 +249,14 @@ function DocumentCard<T>({
           </label>
         )}
         <div className="document-actions">
-          <button ref={primary} className="journey-primary" type="submit">
-            {error && file ? "Retry upload" : "Upload image"}
+          <button
+            ref={primary}
+            className={file ? "journey-secondary" : "journey-primary"}
+            type="button"
+            onClick={() => picker.current?.click()}
+          >
+            {file || saved ? "Replace image" : "Upload image"}
           </button>
-          {mobileCamera && (
-            <button
-              className="journey-secondary"
-              type="button"
-              onClick={() => camera.current?.click()}
-            >
-              Use camera
-            </button>
-          )}
-          {(saved || file) && (
-            <button
-              className="text-link"
-              type="button"
-              onClick={() => picker.current?.click()}
-            >
-              Replace
-            </button>
-          )}
           {file ? (
             <button
               className="text-link"
@@ -321,6 +291,11 @@ function DocumentCard<T>({
                 Remove
               </button>
             )
+          )}
+          {file && (
+            <button className="journey-primary" type="submit">
+              {error ? "Retry save" : "Save image"}
+            </button>
           )}
         </div>
       </fieldset>

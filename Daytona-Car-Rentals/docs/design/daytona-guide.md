@@ -22,7 +22,11 @@ requests, corroborated by the handoffs listed below. Preserve them in future wor
   owner-controlled launch/availability gates. See `lib/data/rentalChannels.ts`
   and `lib/data/vehicles.ts`; do not duplicate the mapping in UI code.
 - Step 2 collects driver details and private documents. Separate license and
-  insurance cards use file/camera as alternative inputs into one selection.
+  insurance cards use one standard image picker without forced camera capture.
+  Prefer the native picker’s existing camera/library choices over redundant
+  custom controls. Show Upload image when empty and Replace image when selected
+  or saved; Save image persists a selection. Saved expiration metadata is labeled
+  text, not an editable-looking field.
   Insurance is marked required only by existing rules. Keep explicit reuse.
 - Selected is not uploaded; uploaded is not reviewed; reviewed documents are
   not final rental approval. A saved draft creates no booking/hold/notification.
@@ -43,7 +47,7 @@ requests, corroborated by the handoffs listed below. Preserve them in future wor
 | Layout and spacing | `.container` max 1200px, desktop width `calc(100% - 64px)`; mobile overrides are in `app/globals.css`. Fleet grid gap 24px. Hero row gap 36px desktop / 24px at ≤760px; date panel padding 20px 24px / 18px mobile. These are component rules, not a new global spacing scale. |
 | Actions and chips | `.journey-primary/.journey-secondary`: min-height 48px, padding 12px 20px, radius 7px. `.period-chips` gap 8px, buttons min-height 44px, radius 24px and `aria-pressed` selection. Existing `components/ui/Button.tsx` and journey classes coexist; use the pattern of the affected view. |
 | Vehicle cards | `components/fleet/VehicleCard.tsx`, `.car-card` white, 1px line border, 10px radius; `.car-image` effective aspect 16/10. Hero verified Corolla image uses object-position 50% 57%, desktop aspect 4/3. Never stretch or substitute unverified imagery. |
-| Document cards | `components/customer/DocumentUpload.tsx`; `.document-card` background `#fffaf2`, border `#a7b8be`, radius .75rem, padding 1rem; grid gap 1rem. Preview max-width 22rem, height 10rem, object-fit contain, background `#e9efee`. These local values are observed implementation, not approved global tokens. |
+| Document cards | `components/customer/DocumentUpload.tsx`; `.document-card` background `#fffaf2`, border `#a7b8be`, radius .75rem, padding 16px (12px horizontal at ≤360px); card content gap .5rem, grid gap 1rem. Native date inputs use border-box/zero minimum width; saved dates use text. Preview max-width 22rem, height 10rem, object-fit contain, background `#e9efee`. These local values are observed implementation, not approved global tokens. |
 | Focus/motion | Global focus outline 3px teal/4px offset; document focus `#126b68`/3px offset. `prefers-reduced-motion` rules exist in `app/globals.css`; verify actual behavior and contrast rather than assuming compliance. |
 
 Later CSS rules override earlier ones. Use selectors plus computed styles; line
