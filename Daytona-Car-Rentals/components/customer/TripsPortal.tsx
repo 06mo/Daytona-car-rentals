@@ -306,31 +306,58 @@ function TripCard({
           draft versions remain until their retention deadline, and retained
           backups expire separately. No OCR is configured.
         </p>
-        {t.documents.map((d) => (
-          <div key={d.id} className="date-actions">
-            <a
-              className="text-link"
-              href={"/api/customer/documents?id=" + d.id}
-            >
-              {d.kind} · {d.reviewed ? "Owner reviewed" : "Awaiting review"}
-            </a>
-            <button
-              disabled={busy}
-              onClick={() => {
-                if (
-                  confirm(
-                    "Delete this document? Required review may become incomplete.",
+        {!editable &&
+          t.documents.map((d) => (
+            <div key={d.id} className="date-actions">
+              <a
+                className="text-link"
+                href={"/api/customer/documents?id=" + d.id}
+              >
+                {d.kind} · {d.reviewed ? "Owner reviewed" : "Awaiting review"}
+              </a>
+              <button
+                disabled={busy}
+                onClick={() => {
+                  if (
+                    confirm(
+                      "Delete this document? Required review may become incomplete.",
+                    )
                   )
-                )
-                  action({ id: d.id }, "/api/customer/documents", "DELETE");
-              }}
-            >
-              Delete
-            </button>
-          </div>
-        ))}
+                    action({ id: d.id }, "/api/customer/documents", "DELETE");
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          ))}
         {editable && (
           <DocumentUpload
+            documents={t.documents.map((d) => ({
+              id: d.id,
+              kind: d.kind,
+              reviewed: d.reviewed,
+              valid_until: d.valid_until,
+            }))}
+            requiredDocuments={
+              t.quote.policy?.requiredDocuments || ["license", "insurance"]
+            }
+            documentUrl={(id) => "/api/customer/documents?id=" + id}
+            remove={async (doc) => {
+              if (
+                confirm(
+                  "Delete this document? Required review may become incomplete.",
+                )
+              ) {
+                if (
+                  !(await action(
+                    { id: doc.id },
+                    "/api/customer/documents",
+                    "DELETE",
+                  ))
+                )
+                  throw Error("Unable to remove document.");
+              }
+            }}
             endpoint="/api/customer/documents"
             payload={{ id: t.id }}
             demo={t.demo}

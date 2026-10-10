@@ -230,9 +230,11 @@ test("renter intake, private images and owner review queue work together", async
   ).toBeVisible();
   for (const kind of ["license", "insurance"]) {
     await card.getByText(/Private documents ·/).click();
-    await card.getByLabel("Document type").selectOption(kind);
-    await card.getByLabel("Document valid through").fill("2045-01-01");
-    await card.locator("input[type=file][name=file]").setInputFiles({
+    const doc = card.getByRole("form", {
+      name: kind === "license" ? "Driver’s license" : "Insurance document",
+      exact: true,
+    });
+    await doc.getByLabel(/image file/).setInputFiles({
       name: "synthetic.png",
       mimeType: "image/png",
       buffer: await sharp({
@@ -241,9 +243,12 @@ test("renter intake, private images and owner review queue work together", async
         .png()
         .toBuffer(),
     });
-    await card.getByLabel("This is a synthetic test image").check();
-    await card.getByRole("button", { name: "Upload privately" }).click();
-    await expect(card.getByLabel("Document type")).not.toBeVisible();
+    await doc.getByLabel("Expiration date").fill("2045-01-01");
+    await doc.getByLabel("This is a synthetic test image").check();
+    await doc
+      .getByRole("button", { name: "Upload image", exact: true })
+      .click();
+    await expect(doc).not.toBeVisible();
     await expect(card).toContainText("Private documents · 2 submitted");
   }
   await card

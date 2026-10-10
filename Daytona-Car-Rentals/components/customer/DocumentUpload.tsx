@@ -1,36 +1,120 @@
 "use client";
-import { useState } from "react";
-/** Shared request/draft uploader. Bytes exist only in memory until the private API accepts them. */
-export function DocumentUpload<T>({
-  endpoint,
-  payload,
-  done,
-  disabled,
-  demo,
-  onBusy,
-}: {
+import { useEffect, useId, useRef, useState } from "react";
+type SavedDocument = {
+  id: string;
+  kind: string;
+  valid_until?: string;
+  reviewed?: boolean;
+};
+type Props<T> = {
   endpoint: string;
   payload: Record<string, unknown>;
   done: (value: T) => void;
   disabled?: boolean;
   demo?: boolean;
   onBusy?: (v: boolean) => void;
-}) {
+  documents?: SavedDocument[];
+  requiredDocuments?: string[];
+  documentUrl?: (id: string) => string;
+  remove?: (doc: SavedDocument) => Promise<void>;
+};
+/** Shared private uploader: selection stays in memory and never implies persistence. */
+export function DocumentUpload<T>(props: Props<T>) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="document-cards">
+      {["license", "insurance"].map((kind) => (
+        <DocumentCard
+          key={kind}
+          {...props}
+          disabled={props.disabled || busy}
+          onBusy={(value) => {
+            setBusy(value);
+            props.onBusy?.(value);
+          }}
+          kind={kind}
+          saved={props.documents?.find((d) => d.kind === kind)}
+        />
+      ))}
+    </div>
+  );
+}
+function DocumentCard<T>({
+  kind,
+  saved,
+  endpoint,
+  payload,
+  done,
+  disabled,
+  demo,
+  onBusy,
+  requiredDocuments,
+  documentUrl,
+  remove,
+}: Props<T> & { kind: string; saved?: SavedDocument }) {
+  const title = kind === "license" ? "Driver’s license" : "Insurance document";
+  const id = useId(),
+    picker = useRef<HTMLInputElement>(null),
+    camera = useRef<HTMLInputElement>(null),
+    primary = useRef<HTMLButtonElement>(null);
+  const [restoreFocus, setRestoreFocus] = useState(false);
+  useEffect(() => {
+    if (restoreFocus && !disabled) {
+      primary.current?.focus();
+      setRestoreFocus(false);
+    }
+  }, [restoreFocus, disabled]);
+  const [file, setFile] = useState<File | null>(null),
+    [preview, setPreview] = useState("");
+  const [validUntil, setValidUntil] = useState(saved?.valid_until || ""),
+    [consent, setConsent] = useState(false);
   const [progress, setProgress] = useState<number | null>(null),
     [error, setError] = useState("");
-  async function upload(form: HTMLFormElement) {
-    const f = new FormData(form),
-      selected = f.get("file") as File,
-      camera = f.get("camera") as File,
-      file = selected?.size ? selected : camera;
+  const [mobileCamera, setMobileCamera] = useState(false);
+  useEffect(() => {
+    setMobileCamera(
+      navigator.maxTouchPoints > 0 &&
+        window.matchMedia("(max-width: 767px)").matches &&
+        "capture" in document.createElement("input"),
+    );
+  }, []);
+  useEffect(() => {
+    if (!file) setValidUntil(saved?.valid_until || "");
+  }, [saved?.id, saved?.valid_until, file]);
+  useEffect(() => {
+    if (!file) {
+      setPreview("");
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+  function select(next?: File) {
+    if (!next) return;
     setError("");
     if (
-      !file ||
-      !["image/jpeg", "image/png"].includes(file.type) ||
-      file.size > 2097152
+      !["image/jpeg", "image/png"].includes(next.type) ||
+      !next.size ||
+      next.size > 2097152
     ) {
       setError(
         "Choose a JPEG or PNG image no larger than 2 MB. Your previous upload is unchanged.",
+      );
+      return;
+    }
+    setFile(next);
+    setConsent(false);
+  }
+  async function upload() {
+    setError("");
+    if (!file) {
+      picker.current?.click();
+      return;
+    }
+    if (!validUntil || !consent) {
+      setError(
+        "Enter the expiration date and confirm the document notice before uploading.",
       );
       return;
     }
@@ -59,11 +143,7 @@ export function DocumentUpload<T>({
           }
         };
         xhr.onerror = () =>
-          reject(
-            Error(
-              "Connection interrupted. Your previous upload is unchanged; retry this file.",
-            ),
-          );
+          reject(Error("Connection interrupted. Retry the selected image."));
         xhr.ontimeout = () =>
           reject(
             Error("Upload timed out. Refresh saved documents before retrying."),
@@ -71,16 +151,22 @@ export function DocumentUpload<T>({
         xhr.send(
           JSON.stringify({
             ...payload,
-            kind: f.get("kind"),
+            kind,
             content: btoa(raw),
-            ...(f.get("validUntil") ? { validUntil: f.get("validUntil") } : {}),
+            validUntil,
           }),
         );
       });
       done(result);
-      form.reset();
+      setFile(null);
+
+      setConsent(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Unable to upload.");
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Unable to upload. Retry the selected image.",
+      );
     } finally {
       setProgress(null);
       onBusy?.(false);
@@ -88,79 +174,166 @@ export function DocumentUpload<T>({
   }
   return (
     <form
+      className="document-upload document-card"
+      aria-label={title}
       onSubmit={(e) => {
         e.preventDefault();
-        void upload(e.currentTarget);
+        void upload();
       }}
-      className="document-upload"
     >
+      <h4>{title}</h4>
+      <p className="small-note">
+        {requiredDocuments?.includes(kind)
+          ? "Required"
+          : requiredDocuments
+            ? "Optional"
+            : "Requirements shown with your trip quote"}
+      </p>
+      <p role="status">
+        {progress !== null
+          ? "Uploading"
+          : saved
+            ? "Uploaded — awaiting review"
+            : "Missing"}
+      </p>
+      {saved?.reviewed && (
+        <p className="small-note">
+          The saved version was previously reviewed. Any replacement needs a new
+          review.
+        </p>
+      )}
+      {(preview || (saved && documentUrl)) && (
+        <img
+          className="document-preview"
+          src={preview || documentUrl!(saved!.id)}
+          alt={file ? `Selected ${title} — not uploaded` : `Saved ${title}`}
+        />
+      )}
+      {file && (
+        <p className="small-note">
+          Selected image — not uploaded.{" "}
+          {saved
+            ? "Your saved document stays in place until this upload succeeds."
+            : "Upload to save it privately."}
+        </p>
+      )}
       <fieldset disabled={disabled || progress !== null}>
-        <legend>Upload or replace a document</legend>
-        <label>
-          Document type
-          <select name="kind">
-            <option value="license">Driver license</option>
-            <option value="insurance">Insurance document</option>
-          </select>
-        </label>
-        <label>
-          Document valid through
-          <input name="validUntil" type="date" required />
-        </label>
-        <label>
-          Choose image file
+        <input
+          ref={picker}
+          hidden
+          type="file"
+          aria-label={`${title} image file`}
+          accept="image/jpeg,image/png"
+          onChange={(e) => {
+            select(e.target.files?.[0]);
+            e.target.value = "";
+          }}
+        />
+        {mobileCamera && (
           <input
+            ref={camera}
+            hidden
             type="file"
-            name="file"
-            accept="image/jpeg,image/png"
-            onChange={(e) => {
-              const other = e.currentTarget.form?.elements.namedItem(
-                "camera",
-              ) as HTMLInputElement | null;
-              if (e.currentTarget.files?.length && other) other.value = "";
-            }}
-          />
-        </label>
-        <label>
-          Take a photo
-          <input
-            type="file"
-            name="camera"
+            aria-label={`${title} camera image`}
             accept="image/jpeg,image/png"
             capture="environment"
             onChange={(e) => {
-              const other = e.currentTarget.form?.elements.namedItem(
-                "file",
-              ) as HTMLInputElement | null;
-              if (e.currentTarget.files?.length && other) other.value = "";
+              select(e.target.files?.[0]);
+              e.target.value = "";
             }}
           />
-        </label>
-        <p className="small-note">
-          On your phone, choose a file or use the camera option. JPEG or PNG, up
-          to 2 MB and 16 megapixels.
-        </p>
-        <label className="checkbox-row">
-          <input type="checkbox" required />
-          {demo
-            ? "This is a synthetic test image, not a real identity document."
-            : "I understand the private document retention policy."}
-        </label>
-        <button className="journey-primary">Upload privately</button>
-      </fieldset>
-      {progress !== null && (
-        <div role="status">
-          <progress
-            aria-label="Document upload progress"
-            value={progress}
-            max={100}
+        )}
+        <label htmlFor={id}>
+          Expiration date
+          <input
+            id={id}
+            type="date"
+            value={validUntil}
+            onChange={(e) => setValidUntil(e.target.value)}
+            readOnly={!file}
           />
-          <p>
-            {progress >= 99
-              ? "Processing image securely…"
-              : `Uploading ${progress}%…`}
-          </p>
+        </label>
+        {file && (
+          <label className="checkbox-row">
+            <input
+              type="checkbox"
+              checked={consent}
+              onChange={(e) => setConsent(e.target.checked)}
+            />
+            {demo
+              ? "This is a synthetic test image, not a real identity document."
+              : "I understand the private document retention policy."}
+          </label>
+        )}
+        <div className="document-actions">
+          <button ref={primary} className="journey-primary" type="submit">
+            {error && file ? "Retry upload" : "Upload image"}
+          </button>
+          {mobileCamera && (
+            <button
+              className="journey-secondary"
+              type="button"
+              onClick={() => camera.current?.click()}
+            >
+              Use camera
+            </button>
+          )}
+          {(saved || file) && (
+            <button
+              className="text-link"
+              type="button"
+              onClick={() => picker.current?.click()}
+            >
+              Replace
+            </button>
+          )}
+          {file ? (
+            <button
+              className="text-link"
+              type="button"
+              onClick={() => {
+                setFile(null);
+                setError("");
+                setRestoreFocus(true);
+              }}
+            >
+              Remove selected image
+            </button>
+          ) : (
+            saved &&
+            remove && (
+              <button
+                className="text-link"
+                type="button"
+                onClick={async () => {
+                  onBusy?.(true);
+                  setError("");
+                  try {
+                    await remove(saved);
+                    setRestoreFocus(true);
+                  } catch {
+                    setError("Unable to remove document. Please retry.");
+                  } finally {
+                    onBusy?.(false);
+                  }
+                }}
+              >
+                Remove
+              </button>
+            )
+          )}
         </div>
+      </fieldset>
+      <p className="small-note">
+        JPEG or PNG, up to 2 MB and 16 megapixels. Private upload; owner review
+        is still required.
+      </p>
+      {progress !== null && (
+        <progress
+          aria-label={`${title} upload progress`}
+          value={progress}
+          max={100}
+        />
       )}
       {error && (
         <p role="alert" className="error-message">

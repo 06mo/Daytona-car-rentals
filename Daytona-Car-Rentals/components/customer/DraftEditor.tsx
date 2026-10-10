@@ -16,7 +16,9 @@ export function DraftEditor({
   onSaved,
   onReady,
   onAuthLost,
+  requiredDocuments,
 }: {
+  requiredDocuments?: string[];
   user: { id: string; email: string };
   trip: TripInput;
   active: boolean;
@@ -232,38 +234,6 @@ export function DraftEditor({
         storage does not erase retained backups. No documents are emailed.{" "}
         <Link href="/privacy">Privacy information</Link>
       </p>
-      {draft?.documents.map((doc) => (
-        <div key={doc.id} className="date-actions">
-          <a
-            className="text-link"
-            href={"/api/customer/drafts?document=" + doc.id}
-          >
-            {doc.kind} · Uploaded — awaiting owner review · valid through{" "}
-            {doc.valid_until}
-          </a>
-          <button
-            disabled={busy}
-            onClick={async () => {
-              setBusy(true);
-              try {
-                receive(
-                  await post({
-                    action: "remove",
-                    id: draft.id,
-                    kind: doc.kind,
-                  }),
-                );
-              } catch (e) {
-                setError((e as Error).message);
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            Remove {doc.kind}
-          </button>
-        </div>
-      ))}
       {saved.length > 0 && (
         <details>
           <summary>Reuse a saved document</summary>
@@ -303,6 +273,14 @@ export function DraftEditor({
         </details>
       )}
       <DocumentUpload
+        documents={draft?.documents}
+        requiredDocuments={requiredDocuments}
+        documentUrl={(id) => "/api/customer/drafts?document=" + id}
+        remove={async (doc) => {
+          receive(
+            await post({ action: "remove", id: draft?.id, kind: doc.kind }),
+          );
+        }}
         endpoint="/api/customer/drafts"
         payload={{
           action: "upload",

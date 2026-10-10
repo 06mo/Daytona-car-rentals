@@ -556,6 +556,14 @@ export function BookingWizard({
               {customerIdentity && (editorStarted || step === 2) && (
                 <DraftEditor
                   key={customerIdentity.id + ":" + draftKey}
+                  requiredDocuments={
+                    quote
+                      ? quote.policy?.requiredDocuments || [
+                          "license",
+                          "insurance",
+                        ]
+                      : undefined
+                  }
                   user={customerIdentity}
                   trip={trip}
                   active={step === 2}

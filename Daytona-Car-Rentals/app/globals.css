@@ -1526,3 +1526,11 @@ summary:focus-visible, [tabindex="-1"]:focus-visible { outline:3px solid var(--t
 [aria-label="Private driver draft"] .date-actions { display: flex; gap: .6rem; margin-block: .8rem; }
 [aria-label="Private driver draft"] .date-actions button { border: 1px solid #8aa4ac; padding: .45rem .7rem; border-radius: .4rem; }
 [aria-label="Private driver draft"] .form-actions { flex-wrap: wrap; gap: .75rem; }
+
+.document-cards { display: grid; gap: 1rem; margin-block: 1rem; }
+.document-card { border: 1px solid #a7b8be; border-radius: .75rem; padding: 1rem; background: #fffaf2; min-width: 0; }
+.document-card h4 { font-size: 1.15rem; margin: 0; }
+.document-preview { display: block; width: 100%; max-width: 22rem; height: 10rem; object-fit: contain; background: #e9efee; border-radius: .4rem; }
+.document-actions { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; }
+.document-card input[hidden] { display: none; }
+.document-card :focus-visible { outline: 3px solid #126b68; outline-offset: 3px; }

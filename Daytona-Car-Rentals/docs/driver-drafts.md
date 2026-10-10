@@ -38,3 +38,11 @@ Recovery: this is an additive schema change. Keep migration 005 and records inta
 ### Validation recorded for this implementation
 
 70 backend checks passed (29 core/Postgres/backup/origin, 25 portal/outbox/Auth isolation, 11 signing hook, 5 draft scenarios), plus TypeScript and the production build. The full 35-case browser suite passed; after final My trips account-switch hardening, the 13 affected cases passed (12 together, the callback case rerun after using browser fetch for Secure loopback cookies). This covers a delayed previous-account response, magic-link return to an owned step-2 draft, explicit document reuse, keyboard operation, 320/390/1440px layouts, retry state, quote refresh, history and duplicate final submissions. All database records/images were synthetic and local. No hosted delivery, camera hardware, migration or deployment is claimed by these results.
+
+## Document selection cards
+
+The shared uploader in Driver & documents and editable My trips requests has separate license and insurance cards. Required/optional labels use the current quote's existing policy; without a quote the requirement is left unresolved. Each card holds one in-memory selection and one preview. Selecting a file or camera image does not upload it: the renter supplies its expiration date, confirms the document notice and chooses Upload image. Supported narrow touch browsers also get a camera capture action; desktop has one file picker. The browser controls physical camera availability.
+
+Only successful private API responses replace the displayed saved version. Failed selections/uploads retain the saved document; a pending replacement can be removed to show that saved version again. Removing a saved draft document uses the existing remove API. My trips retains its existing deletion confirmation and review transitions. Explicit reuse remains in the draft editor; reused documents require fresh owner review. Neither upload method implies approval or identity verification.
+
+No migration or new configuration is required. The existing owned My trips response now includes the already-stored `valid_until` metadata for its expiration field. Existing file limits, synthetic Preview notice, ownership, document endpoints, retention and final-submission safeguards are unchanged.

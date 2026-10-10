@@ -39,9 +39,11 @@ export async function completeDriver(page: import("@playwright/test").Page) {
     await page.getByLabel(label, { exact: true }).fill(value);
   await page.getByLabel("I confirm these fields").check();
   for (const kind of ["license", "insurance"]) {
-    await page.getByLabel("Document type").selectOption(kind);
-    await page.getByLabel("Document valid through").fill("2045-01-01");
-    await page.getByLabel("Choose image file").setInputFiles({
+    const doc = page.getByRole("form", {
+      name: kind === "license" ? "Driver’s license" : "Insurance document",
+      exact: true,
+    });
+    await doc.getByLabel(/image file/).setInputFiles({
       name: "synthetic.png",
       mimeType: "image/png",
       buffer: await sharp({
@@ -50,11 +52,17 @@ export async function completeDriver(page: import("@playwright/test").Page) {
         .png()
         .toBuffer(),
     });
-    await page.getByLabel("This is a synthetic test image").check();
-    await page.getByRole("button", { name: "Upload privately" }).click();
-    await page
-      .getByRole("link", { name: new RegExp("^" + kind + " · Uploaded") })
+    await doc.getByLabel("Expiration date").fill("2045-01-01");
+    await doc.getByLabel("This is a synthetic test image").check();
+    await doc
+      .getByRole("button", { name: "Upload image", exact: true })
+      .click();
+    await doc
+      .getByText("Uploaded — awaiting review", { exact: true })
       .waitFor();
+    await doc
+      .getByText(/Selected image — not uploaded/)
+      .waitFor({ state: "hidden" });
   }
 }
 export async function preparedRequest(

@@ -94,7 +94,7 @@ export async function trips(user: CustomerIdentity) {
       ).rows[0]?.data;
       const docs = (
         await query(
-          "SELECT id,kind,created_at,expires_at,reviewed FROM dcr_private.documents WHERE request_id=$1 AND expires_at>$2",
+          "SELECT id,kind,created_at,expires_at,reviewed,valid_until FROM dcr_private.documents WHERE request_id=$1 AND expires_at>$2",
           [r.id, Date.now()],
         )
       ).rows;
