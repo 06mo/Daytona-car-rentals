@@ -233,42 +233,82 @@ function SettingsForm({
     </form>
   );
 }
-function ReviewPanel({ r, save }: { r: Reservation; save: Mutation }) {
+function RequestSummary({ r }: { r: Reservation }) {
   const v = vehicles.find((v) => v.id === r.quote.vehicleId)!;
+  return (
+    <section className="panel owner-summary" aria-label="Request summary">
+      <p className="eyebrow">
+        {r.demo ? "Synthetic Preview request" : "Direct request"} ·{" "}
+        {r.id.slice(0, 8)}
+      </p>
+      <h2>{r.name}</h2>
+      <dl className="owner-facts">
+        <div>
+          <dt>Vehicle</dt>
+          <dd>
+            {v.year} {v.make} {v.model}
+          </dd>
+        </div>
+        <div>
+          <dt>Dates · Eastern time</dt>
+          <dd>
+            {r.quote.start.replace("T", " ")} — {r.quote.end.replace("T", " ")}
+          </dd>
+        </div>
+        <div>
+          <dt>Accepted trip total</dt>
+          <dd>
+            {money(r.quote.totalCents)} · Deposit {money(r.quote.depositCents)}
+          </dd>
+        </div>
+        <div>
+          <dt>Status</dt>
+          <dd>
+            {r.status} ·{" "}
+            {r.reviewStage?.replaceAll("_", " ") || "Manual review"}
+          </dd>
+        </div>
+        <div>
+          <dt>Hold expiry · Eastern time</dt>
+          <dd>
+            {new Date(r.holdUntil).toLocaleString("en-US", {
+              timeZone: "America/New_York",
+            })}
+            {r.status === "pending" && r.holdUntil <= Date.now()
+              ? " · Expired"
+              : ""}
+          </dd>
+        </div>
+        <div>
+          <dt>Pickup</dt>
+          <dd>
+            {r.quote.location === "airport" ? "DAB delivery" : "Local pickup"}
+          </dd>
+        </div>
+      </dl>
+    </section>
+  );
+}
+function ReviewPanel({ r, save }: { r: Reservation; save: Mutation }) {
   const expired = r.status === "pending" && r.holdUntil < Date.now();
   return (
     <div className="panel review-panel">
-      <div className="section-heading">
-        <div>
-          <p className="eyebrow">
-            {r.id.slice(0, 8)} ·{" "}
-            {r.demo ? "SYNTHETIC PREVIEW" : "DIRECT REQUEST"}
-          </p>
-          <h2>{r.name}</h2>
-          <p>
-            {v.make} {v.model} · {r.quote.start.replace("T", " ")} —{" "}
-            {r.quote.end.replace("T", " ")} ET
-          </p>
-          <p>
-            {r.email} · {r.phone}
-          </p>
-        </div>
-        <span className="status-pill">
-          {expired ? "Hold expired" : r.status}
-        </span>
-      </div>
+      <h2>Final booking confirmation</h2>
       <p>
-        Trip total {money(r.quote.totalCents)} · Deposit{" "}
-        {money(r.quote.depositCents)} ·{" "}
-        {r.quote.location === "airport" ? "DAB delivery" : "Local pickup"}
+        Document approval and renter eligibility do not confirm a booking.
+        Record each release check separately, using actual evidence. Payment and
+        screening services are not connected.
       </p>
       <p className="small-note">
-        Hold until{" "}
-        {new Date(r.holdUntil).toLocaleString("en-US", {
-          timeZone: "America/New_York",
-        })}{" "}
-        ET. Record provider references, not raw license or policy numbers. Never
-        claim a document was checked without doing the review.
+        Record provider references, not raw license or policy numbers. Never
+        mark a check complete without performing the review.
+      </p>
+      <p id="confirmation-requirements">
+        {r.status !== "pending"
+          ? "This request is no longer pending; release checks cannot be changed."
+          : expired
+            ? "The hold has expired. A new quote and request are required."
+            : "Before confirming: approve renter eligibility and documents, then complete every release check with evidence. Availability and launch requirements are checked again by the server."}
       </p>
       {checks.map((check) => (
         <form
@@ -334,7 +374,14 @@ function ReviewPanel({ r, save }: { r: Reservation; save: Mutation }) {
             Cancel request
           </Button>
           <Button
-            disabled={expired || !checks.every((c) => r.checks[c].checked)}
+            aria-describedby="confirmation-requirements"
+            disabled={
+              expired ||
+              (!!r.customerId && r.reviewStage !== "approved") ||
+              !checks.every(
+                (c) => r.checks[c].checked && r.checks[c].evidence.length >= 5,
+              )
+            }
             onClick={() => {
               if (
                 window.confirm(
@@ -629,8 +676,10 @@ export function PilotConsole() {
               </div>
               {chosen ? (
                 <>
-                  <ReviewPanel r={chosen} save={save} />
-                  <PortalReview r={chosen} reload={load} />
+                  <RequestSummary r={chosen} />
+                  <PortalReview key={chosen.id} r={chosen} reload={load}>
+                    <ReviewPanel r={chosen} save={save} />
+                  </PortalReview>
                 </>
               ) : (
                 <div className="panel empty-state">

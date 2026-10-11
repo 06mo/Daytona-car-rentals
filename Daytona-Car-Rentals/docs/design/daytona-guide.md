@@ -97,3 +97,12 @@ including enlarged text. A viewport-only overflow check is insufficient.
 Keep Continue to review full-width above a spaced Save draft/Back row on mobile.
 Do not clip controls, shrink text or disable zoom. Physical iPhone verification
 remains necessary even when Linux WebKit passes.
+
+## Owner review sequence (owner-approved)
+The Reservations screen follows summary → labeled renter details → private
+document cards → explicit review decision/instructions → final release checks.
+No approval action is preselected. Alternative car appears only for an alternative
+offer; the customer must still accept it. Document approval, renter eligibility
+and final booking confirmation remain distinct. Keep maintenance and notification
+tools secondary; never complete evidence checks automatically.
+Sources: components/admin/PilotConsole.tsx and PortalReview.tsx.

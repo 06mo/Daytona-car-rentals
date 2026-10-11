@@ -81,3 +81,12 @@ every ancestor content boundary with populated dates at 100%/200% text.
 Owner-requested action hierarchy: primary Continue to review above secondary
 Save draft and Back. Do not interpret an uploaded screenshot as live UI.
 This evidence does not establish physical iOS Safari correctness.
+
+## Owner review order (2026-10-11)
+Source inspection found final release checks before intake/documents and a decision
+selector defaulting to approval. Owner-authorized change places evidence before
+decisions, starts with an empty explicit choice and conditionally reveals the
+alternative selector. Reused existing coastal panels and document-card styles;
+no new pattern research was needed. Native select labels should be outside their
+option lists so exact accessible names remain clear. Browser tests must exercise
+the correction/resubmission loop and server rejection, not merely button styling.

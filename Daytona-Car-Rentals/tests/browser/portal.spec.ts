@@ -293,7 +293,7 @@ test("renter intake, private images and owner review queue work together", async
     .filter({ hasText: saved.id.slice(0, 8) })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Renter intake and delivery queue" }),
+    page.getByRole("heading", { name: "Renter details" }),
   ).toBeVisible();
   await expect(page.locator(".portal-tools")).toContainText("Synthetic Driver");
   for (const width of [1440, 390, 320]) {

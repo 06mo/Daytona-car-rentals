@@ -525,7 +525,7 @@ export async function ownerPortal() {
       .rows,
     documents: (
       await query(
-        "SELECT id,request_id,kind,reviewed,expires_at FROM dcr_private.documents",
+        "SELECT id,request_id,kind,reviewed,valid_until,expires_at FROM dcr_private.documents",
       )
     ).rows,
     claims: (
