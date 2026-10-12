@@ -1,5 +1,6 @@
 import { policySchema, resolvePolicy } from "./policy";
 import { notify } from "../customer/notifications";
+import { requireValidDocuments } from "../customer/document-validity";
 import type { CustomerIdentity } from "../customer/auth";
 import "server-only";
 import { createHash, randomUUID } from "node:crypto";
@@ -61,10 +62,11 @@ async function audit(
   action: string,
   reference: string,
   actor = "owner:legacy",
+  details: Record<string, unknown> = {},
 ) {
   await query(
-    "INSERT INTO dcr_private.audit(id,at,action,reference,actor) VALUES($1,$2,$3,$4,$5)",
-    [randomUUID(), Date.now(), action, reference, actor],
+    "INSERT INTO dcr_private.audit(id,at,action,reference,actor,details) VALUES($1,$2,$3,$4,$5,$6)",
+    [randomUUID(), Date.now(), action, reference, actor, details],
   );
 }
 async function assertAvailable(
@@ -323,6 +325,7 @@ const adminSchema = z.discriminatedUnion("action", [
     id: z.string().uuid(),
     revision: z.number().int(),
     status: z.enum(["confirmed", "cancelled"]),
+    reason: z.string().trim().min(5).max(500).optional(),
   }),
 ]);
 export async function adminAction(input: unknown, actor = "owner:legacy") {
@@ -448,7 +451,8 @@ export async function adminAction(input: unknown, actor = "owner:legacy") {
           "Someone updated this request. Reload before saving.",
           409,
         );
-      if (r.status !== "pending")
+      const cancelling = a.action === "status" && a.status === "cancelled";
+      if (r.status === "cancelled" || (r.status !== "pending" && !cancelling))
         throw new PilotError(
           "Only pending requests can be reviewed or changed.",
           409,
@@ -464,6 +468,14 @@ export async function adminAction(input: unknown, actor = "owner:legacy") {
           checkedAt: Date.now(),
         };
       } else {
+        if (a.status === "cancelled") {
+          if (!a.reason)
+            throw new PilotError("Provide a customer-safe cancellation reason (at least five characters).");
+          r.cancellation = { reason: a.reason, at: Date.now(), actor, previousStatus: r.status };
+          r.decisionReason = a.reason;
+          delete r.alternative;
+          r.holdUntil = 0;
+        }
         if (a.status === "confirmed") {
           assertDirect(r.quote.vehicleId);
           if (r.customerId) {
@@ -479,21 +491,22 @@ export async function adminAction(input: unknown, actor = "owner:legacy") {
               )
             ).rows[0]?.data;
             const docs = (
-              await query(
-                "SELECT kind FROM dcr_private.documents WHERE request_id=$1 AND reviewed AND expires_at>$2",
+              await query<{ kind: string; valid_until: string | null; reviewed: boolean }>(
+                "SELECT kind,valid_until FROM dcr_private.documents WHERE request_id=$1 AND reviewed AND expires_at>$2",
                 [r.id, Date.now()],
               )
-            ).rows.map((d) => d.kind);
+            ).rows;
             if (
               !intake?.reviewed ||
               (
                 r.quote.policy?.requiredDocuments || ["license", "insurance"]
-              ).some((k) => !docs.includes(k))
+              ).some((k) => !docs.some((d) => d.kind === k))
             )
               throw new PilotError(
                 "Reviewed renter information and documents are required.",
                 409,
               );
+            requireValidDocuments(r.quote, docs);
           }
           if (r.holdUntil <= Date.now())
             throw new PilotError(
@@ -534,6 +547,7 @@ export async function adminAction(input: unknown, actor = "owner:legacy") {
         a.action === "review" ? "review." + a.check : "request." + a.status,
         r.id,
         actor,
+        cancelling ? { ...r.cancellation, status: "cancelled" } : {},
       );
       if (a.action === "status") await notify(r, a.status);
     }

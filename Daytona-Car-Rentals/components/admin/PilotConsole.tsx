@@ -264,14 +264,13 @@ function RequestSummary({ r }: { r: Reservation }) {
         <div>
           <dt>Status</dt>
           <dd>
-            {r.status} ·{" "}
-            {r.reviewStage?.replaceAll("_", " ") || "Manual review"}
+            {r.status}{r.status !== "cancelled" && <> · {r.reviewStage?.replaceAll("_", " ") || "Manual review"}</>}
           </dd>
         </div>
         <div>
           <dt>Hold expiry · Eastern time</dt>
           <dd>
-            {new Date(r.holdUntil).toLocaleString("en-US", {
+            {r.status === "cancelled" ? "Released" : new Date(r.holdUntil).toLocaleString("en-US", {
               timeZone: "America/New_York",
             })}
             {r.status === "pending" && r.holdUntil <= Date.now()
@@ -286,6 +285,7 @@ function RequestSummary({ r }: { r: Reservation }) {
           </dd>
         </div>
       </dl>
+      {r.cancellation && <p><strong>Cancellation reason:</strong> {r.cancellation.reason}</p>}
     </section>
   );
 }
@@ -356,24 +356,6 @@ function ReviewPanel({ r, save }: { r: Reservation; save: Mutation }) {
       {r.status === "pending" && (
         <div className="form-actions">
           <Button
-            variant="outline"
-            onClick={() => {
-              if (
-                window.confirm(
-                  "Cancel this request and release its internal hold? This does not process a refund.",
-                )
-              )
-                save({
-                  action: "status",
-                  id: r.id,
-                  revision: r.revision,
-                  status: "cancelled",
-                });
-            }}
-          >
-            Cancel request
-          </Button>
-          <Button
             aria-describedby="confirmation-requirements"
             disabled={
               expired ||
@@ -399,6 +381,19 @@ function ReviewPanel({ r, save }: { r: Reservation; save: Mutation }) {
             Confirm after review
           </Button>
         </div>
+      )}
+      {r.status !== "cancelled" && (
+        <form className="panel" key={r.id + ":cancel"} onSubmit={(e) => {
+          e.preventDefault();
+          const reason = String(new FormData(e.currentTarget).get("reason") || "").trim();
+          if (window.confirm("Cancel this rental and release its dates in this site? Refunds and Turo changes must be handled separately."))
+            save({ action: "status", id: r.id, revision: r.revision, status: "cancelled", reason });
+        }}>
+          <h3>{r.status === "confirmed" ? "Cancel confirmed rental" : "Cancel request"}</h3>
+          <p id={r.id + "-cancel-help"}>This releases dates in this site and queues a status notification. It does not process a refund or update Turo. Check those arrangements separately.</p>
+          <Input id={r.id + "-cancel-reason"} name="reason" label="Cancellation reason visible to customer" required minLength={5} maxLength={500} aria-describedby={r.id + "-cancel-help"} />
+          <Button type="submit" variant="outline">{r.status === "confirmed" ? "Cancel confirmed rental" : "Cancel request"}</Button>
+        </form>
       )}
     </div>
   );

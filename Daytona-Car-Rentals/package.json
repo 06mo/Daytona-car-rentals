@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "node --conditions=react-server --import tsx tests/pilot.test.ts && node --conditions=react-server --import tsx tests/live.test.ts && node --conditions=react-server --import tsx tests/postgres.test.ts && node --conditions=react-server --import tsx tests/backup.test.ts && npm run test:preview-origin",
+    "test": "node --conditions=react-server --import tsx tests/pilot.test.ts && node --conditions=react-server --import tsx tests/live.test.ts && node --conditions=react-server --import tsx tests/postgres.test.ts && node --conditions=react-server --import tsx tests/backup.test.ts && npm run test:preview-origin && npm run test:safeguards",
     "test:e2e": "playwright test",
     "admin:setup": "node scripts/admin-setup.mjs",
     "db:migrate": "node --import tsx scripts/db.ts migrate",
@@ -17,6 +17,7 @@
     "test:preview-origin": "node --conditions=react-server --import tsx tests/preview-origin.test.ts",
     "test:portal": "node --conditions=react-server --import tsx tests/portal.test.ts && node --conditions=react-server --import tsx tests/outbox.test.ts && node --conditions=react-server --import tsx tests/auth-isolation.test.ts",
     "test:auth-hook": "node --import tsx tests/preview-auth-hook.test.ts",
+    "test:safeguards": "node --conditions=react-server --import tsx tests/review-safeguards.test.ts",
     "test:drafts": "node --conditions=react-server --import tsx tests/drafts.test.ts"
   },
   "dependencies": {

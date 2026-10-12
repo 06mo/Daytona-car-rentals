@@ -73,7 +73,7 @@ async function main() {
     // Release only this check's synthetic holds, retaining an auditable cancelled record.
     for(const id of requests) {
       const row=(await query('SELECT data FROM dcr_private.reservations WHERE id=$1',[id])).rows[0]?.data;
-      if(row?.demo && row.status==='pending')await store.adminAction({action:'status',id,revision:row.revision,status:'cancelled'});
+      if(row?.demo && row.status==='pending')await store.adminAction({action:'status',id,revision:row.revision,status:'cancelled',reason:'Synthetic hosted verification cleanup'});
     }
     evidence.syntheticHoldsReleased=true;
     await closeDatabase();

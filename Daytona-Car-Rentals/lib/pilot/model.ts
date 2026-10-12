@@ -91,6 +91,7 @@ export type Reservation = {
     | "declined"
     | "approved";
   decisionReason?: string;
+  cancellation?: { reason: string; at: number; actor: string; previousStatus: "pending" | "confirmed" };
   alternative?: Quote;
   id: string;
   quote: Quote;

@@ -104,13 +104,13 @@ test("cross-customer intake and document operations denied; malformed images nev
       .png()
       .toBuffer()
   ).toString("base64");
-  await assert.rejects(uploadDocument(b, id, "license", image), /not found/);
-  const doc = await uploadDocument(a, id, "license", image);
+  await assert.rejects(uploadDocument(b, id, "license", image, "2050-01-01"), /not found/);
+  const doc = await uploadDocument(a, id, "license", image, "2050-01-01");
   await assert.rejects(document(doc.id, b), /not found/);
   assert((await document(doc.id, a)).length > 20);
   await assert.rejects(deleteDocument(b, doc.id), /not found/);
   await assert.rejects(submitIntake(a, id), /all required/);
-  await uploadDocument(a, id, "insurance", image);
+  await uploadDocument(a, id, "insurance", image, "2050-01-01");
   await submitIntake(a, id);
   const prior = (await owned(id, a)).revision;
   await submitIntake(a, id);
@@ -364,7 +364,7 @@ test("replacing a license invalidates related release evidence and renter approv
       .png()
       .toBuffer()
   ).toString("base64");
-  await uploadDocument(a, r.id, "license", image);
+  await uploadDocument(a, r.id, "license", image, "2050-01-01");
   const changed = await owned(r.id, a);
   assert.equal(changed.reviewStage, "documents_needed");
   for (const check of ["license", "mvr", "agreement"] as const)
@@ -437,7 +437,7 @@ test('agreement generation rejects stale approval on cancelled, declined, expire
   const request=await createRequest(payload(q.id),a), target=request.id;
   await saveIntake(a,target,{legalName:'Synthetic agreement test',birthDate:'1990-01-01',licenseRegion:'FL',licenseExpiry:'2047-01-01',address:'Synthetic address only',confirmed:true});
   const image=(await sharp({create:{width:20,height:20,channels:3,background:'#ccc'}}).png().toBuffer()).toString('base64');
-  for(const kind of ['license','insurance'])await uploadDocument(a,target,kind,image);
+  for(const kind of ['license','insurance'])await uploadDocument(a,target,kind,image,"2050-01-01");
   for(const action of ['documents','approved'])await portalReview({action,id:target,revision:(await owned(target,a)).revision,reason:'Synthetic owner review'},'owner:test');
   const r=await owned(target,a);
   assert.equal((await agreementFields(target,'owner:test')).requestId,target);

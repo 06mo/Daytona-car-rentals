@@ -10,6 +10,7 @@ import { cookies } from "next/headers";
 import { ZodError } from "zod";
 import { PilotError } from "./errors";
 import { query, transaction } from "./database";
+import { adminLoginNetwork, loginClient, loginCookie, loginLimitKeys, loginWindowMs } from "./admin-login";
 
 export function sameOrigin(request: Request) {
   if (process.env.NODE_ENV === "production" && !process.env.DCR_SITE_ORIGIN)
@@ -93,10 +94,13 @@ export async function requireAdmin() {
     throw new PilotError("Session expired. Sign in again.", 401);
   return "owner:" + digest(token).slice(0, 16);
 }
-export async function signIn(password: unknown) {
+export async function checkAdminPassword(password: unknown, network: string, client: string) {
   const hash = process.env.DCR_ADMIN_PASSWORD_HASH;
   if (!hash) throw new PilotError("Admin access has not been configured.", 503);
-  await limit("admin-login", 5, 15 * 60000);
+  const keys = loginLimitKeys(network, client, hash);
+  // Cookie rotation cannot remove the network budget. There is no site-wide lockout.
+  await limit(keys.network, 100, loginWindowMs);
+  await limit(keys.client, 5, loginWindowMs);
   if (typeof password !== "string" || password.length > 200)
     throw new PilotError("Incorrect password.", 401);
   const [salt, expected] = hash.split(":");
@@ -106,9 +110,24 @@ export async function signIn(password: unknown) {
     target = Buffer.from(expected, "hex");
   if (actual.length !== target.length || !timingSafeEqual(actual, target))
     throw new PilotError("Incorrect password.", 401);
+  return keys.client;
+}
+export async function signIn(password: unknown, request: Request) {
+  const hash = process.env.DCR_ADMIN_PASSWORD_HASH;
+  if (!hash) throw new PilotError("Admin access has not been configured.", 503);
+  const network = adminLoginNetwork(request);
+  const jar = await cookies();
+  const prior = jar.get(loginCookie)?.value;
+  const client = loginClient(prior, hash);
+  if (client !== prior) jar.set(loginCookie, client, {
+    httpOnly: true, secure: process.env.NODE_ENV === "production",
+    sameSite: "strict", path: "/api/admin", maxAge: loginWindowMs / 1000,
+  });
+  const clientKey = await checkAdminPassword(password, network, client);
   const token = randomBytes(32).toString("hex");
   await transaction(async () => {
-    await query("DELETE FROM dcr_private.attempts WHERE id='admin-login'");
+    await query("DELETE FROM dcr_private.attempts WHERE id=$1", [clientKey]);
+    await query("DELETE FROM dcr_private.attempts WHERE (id LIKE 'admin-client:%' OR id LIKE 'admin-network:%') AND reset<=$1", [Date.now()]);
     await query("DELETE FROM dcr_private.sessions WHERE expires<=$1", [
       Date.now(),
     ]);
@@ -117,7 +136,7 @@ export async function signIn(password: unknown) {
       Date.now() + 8 * 3600000,
     ]);
   });
-  (await cookies()).set("dcr_admin", token, {
+  jar.set("dcr_admin", token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",

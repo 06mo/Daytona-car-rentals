@@ -90,3 +90,17 @@ alternative selector. Reused existing coastal panels and document-card styles;
 no new pattern research was needed. Native select labels should be outside their
 option lists so exact accessible names remain clear. Browser tests must exercise
 the correction/resubmission loop and server rejection, not merely button styling.
+
+
+## Explicit cancellation and document validity (2026-10-11)
+
+Owner-authorized safeguards preserve the existing approval sequence. The expiry
+reproduction showed that a replacement's retention deadline is not evidence of
+its insurance validity; server checks must repeat through resubmission and release.
+The new cancellation control requires a customer-safe reason and an explicit
+confirmation naming inventory release. It does not imply refund processing or
+external-calendar synchronization. Cancelling the confirmation dialog preserves
+input. Reuse the existing panels, disabled-fieldset and status/error announcements;
+verify both keyboard recovery and the confirmed-to-cancelled transition at mobile
+and desktop widths. These are scoped implementation choices, not a newly approved
+refund policy or redesign.

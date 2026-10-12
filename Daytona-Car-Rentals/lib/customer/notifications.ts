@@ -11,14 +11,18 @@ export async function enqueue(
   owner = false,
 ) {
   const car = vehicles.find((v) => v.id === r.quote.vehicleId);
+  const cancelledItem = r.cancellation?.previousStatus === "confirmed" ? "rental" : "rental request";
   const payload = {
     subject: owner
       ? "Rental review update"
       : event === "confirmed"
         ? "Rental confirmed"
+        : event === "cancelled"
+          ? (cancelledItem === "rental" ? "Rental cancelled" : "Rental request cancelled")
         : "Rental request update",
     text: `${event === "received" ? "Request received—your trip is not confirmed." : event === "confirmed" ? "Your rental has been confirmed after owner review." : event === "documents" ? "Your renter information was updated; this message is not a confirmation." : "Your request status has changed; this message is not a confirmation."}\nReference: ${r.id}\n${car?.year} ${car?.make} ${car?.model}\n${r.quote.start} to ${r.quote.end} (Eastern)\nNext: ${owner ? "Review the request and required checks." : event === "received" ? "View your request status and next required action in My trips." : "Sign in to review the next required action."}\n${process.env.DCR_SITE_ORIGIN || ""}${owner ? "/admin" : "/my-trip"}`,
   };
+  if (event === "cancelled") payload.text = `Your ${cancelledItem} has been cancelled.\nReference: ${r.id}\nReason: ${r.cancellation?.reason || r.decisionReason || "Contact the owner for details."}\nThe dates have been released in this site's reservation calendar. This action does not process a refund or update Turo. Contact the owner about any payment or external booking arrangements.\n${process.env.DCR_SITE_ORIGIN || ""}${owner ? "/admin" : "/my-trip"}`;
   await query(
     "INSERT INTO dcr_private.outbox(id,event_key,recipient,payload,created_at) VALUES($1,$2,$3,$4,$5) ON CONFLICT(event_key) DO NOTHING",
     [

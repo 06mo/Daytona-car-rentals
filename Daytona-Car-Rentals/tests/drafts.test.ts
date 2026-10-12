@@ -264,7 +264,7 @@ test("legacy request documents remain readable; expired drafts and historical ve
     },
     b,
   );
-  const doc = await uploadDocument(b, r.id, "license", image);
+  const doc = await uploadDocument(b, r.id, "license", image, "2050-01-01");
   assert((await document(doc.id, b)).length > 0);
   await saveIntake(b, r.id, intake);
   assert.equal((await returningDetails(b)).contact.name, r.name);

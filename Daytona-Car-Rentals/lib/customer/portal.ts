@@ -1,5 +1,5 @@
 import "server-only";
-import { date, intakeSchema } from "./intake";
+import { intakeSchema } from "./intake";
 export { date, intakeSchema } from "./intake";
 import { randomUUID } from "node:crypto";
 import sharp from "sharp";
@@ -8,6 +8,7 @@ import { query, transaction } from "../pilot/database";
 import { PilotError } from "../pilot/errors";
 import { emailHash, type CustomerIdentity } from "./auth";
 import { notify } from "./notifications";
+import { requireDocumentValidity, requireValidDocuments } from "./document-validity";
 import { quote, settings } from "../pilot/store";
 import { type Reservation, daytonaTime } from "../pilot/model";
 export async function recordAudit(
@@ -196,11 +197,11 @@ export async function uploadDocument(
   validUntil?: unknown,
 ) {
   const k = z.enum(["license", "insurance"]).parse(kind);
-  const valid = validUntil == null ? null : date.parse(validUntil);
   const content = await documentImage(base64);
   return transaction(async () => {
     const r = await owned(id, user);
     editable(r);
+    const valid = requireDocumentValidity(validUntil, r.quote);
     const docId = randomUUID();
     await query(
       "INSERT INTO dcr_private.documents(id,request_id,kind,content,created_at,expires_at) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(request_id,kind) DO UPDATE SET id=$1,content=$4,created_at=$5,expires_at=$6,reviewed=false",
@@ -301,7 +302,6 @@ export async function submitIntake(user: CustomerIdentity, id: string) {
   return transaction(async () => {
     const r = await owned(id, user);
     editable(r);
-    if (r.reviewStage === "under_review") return;
     const intake = (
       await query("SELECT data FROM dcr_private.intakes WHERE request_id=$1", [
         id,
@@ -314,13 +314,15 @@ export async function submitIntake(user: CustomerIdentity, id: string) {
       "insurance",
     ];
     const docs = (
-      await query(
-        "SELECT kind FROM dcr_private.documents WHERE request_id=$1 AND expires_at>$2",
+      await query<{ kind: string; valid_until: string | null; reviewed: boolean }>(
+        "SELECT kind,valid_until FROM dcr_private.documents WHERE request_id=$1 AND expires_at>$2",
         [id, Date.now()],
       )
-    ).rows.map((x) => x.kind);
-    if (required.some((k) => !docs.includes(k)))
+    ).rows;
+    if (required.some((k) => !docs.some((d) => d.kind === k)))
       throw new PilotError("Upload all required documents first.");
+    requireValidDocuments(r.quote, docs);
+    if (r.reviewStage === "under_review") return;
     r.reviewStage = "under_review";
     r.revision++;
     await persist(r);
@@ -474,8 +476,8 @@ export async function portalReview(input: unknown, actor: string) {
         "insurance",
       ];
       const docs = (
-        await query(
-          "SELECT kind,reviewed FROM dcr_private.documents WHERE request_id=$1 AND expires_at>$2",
+        await query<{ kind: string; valid_until: string | null; reviewed: boolean }>(
+          "SELECT kind,reviewed,valid_until FROM dcr_private.documents WHERE request_id=$1 AND expires_at>$2",
           [r.id, Date.now()],
         )
       ).rows;
@@ -488,6 +490,7 @@ export async function portalReview(input: unknown, actor: string) {
         )
       )
         throw new PilotError("Required documents need owner review.");
+      requireValidDocuments(r.quote, docs);
       if (a.action === "documents") {
         await query(
           "UPDATE dcr_private.documents SET reviewed=true WHERE request_id=$1",
@@ -566,8 +569,8 @@ export async function agreementFields(id: string, actor: string) {
         409,
       );
     const documents = (
-      await query(
-        "SELECT kind FROM dcr_private.documents WHERE request_id=$1 AND reviewed AND expires_at>$2",
+      await query<{ kind: string; valid_until: string | null; reviewed: boolean }>(
+        "SELECT kind,valid_until FROM dcr_private.documents WHERE request_id=$1 AND reviewed AND expires_at>$2",
         [id, Date.now()],
       )
     ).rows;
@@ -580,6 +583,7 @@ export async function agreementFields(id: string, actor: string) {
         "Current reviewed documents are required before generating agreement fields.",
         409,
       );
+    requireValidDocuments(r.quote, documents);
     // This is fresh field generation, never retrieval of an executed agreement.
     await recordAudit("agreement.fields", id, actor);
     return {

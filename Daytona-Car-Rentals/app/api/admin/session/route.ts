@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 export async function POST(request: Request) {
   try {
     const input = await body(request);
-    await signIn(input.password);
+    await signIn(input.password, request);
     return NextResponse.json({ ok: true });
   } catch (e) {
     return responseError(e);

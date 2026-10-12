@@ -78,6 +78,7 @@ test("requests use stored quote totals, replay safely, discard demo PII and prev
         id: r.id,
         revision: r.revision,
         status: "cancelled",
+        reason: "Synthetic renter cancellation",
     }));
     await assert.doesNotReject(async () => (await store.quote(trip)));
 });
